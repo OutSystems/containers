@@ -58,7 +58,7 @@ Function AddFallbackRewriteToSelfInboundRule {
 
     $Site="iis:\sites\$SiteName"
 
-    EchoAndLog "Creating URL Rewrite Inbound Rule to add rerouting back to original host in '$SiteName' website."
+    EchoAndLog "Creating URL Rewrite Inbound Rule to add rerouting back to original host ('$OriginMachineFullyQualifiedName') in '$SiteName' website."
 
     $FilterRewriteRules = "system.webServer/rewrite/rules"
     $FilterRoot = "$FilterRewriteRules/rule[@name='$RuleName']"
@@ -74,7 +74,7 @@ Function AddFallbackRewriteToSelfInboundRule {
     Add-WebConfigurationProperty -PSPath $Site -Filter "$FilterRewriteRules" -Name "." -Value @{name=$RuleName; stopProcessing='True'}
     Set-WebConfigurationProperty -PSPath $Site -Filter "$FilterRoot/match" -Name "url" -Value "(.*)"
     Set-WebConfigurationProperty -PSPath $Site -Filter "$FilterRoot/action" -Name "type" -Value "Rewrite"
-    Set-WebConfigurationProperty -PSPath $Site -Filter "$FilterRoot/action" -Name "url" -Value "http://$OriginMachineFullyQualifiedName/{R:1}"
+    Set-WebConfigurationProperty -PSPath $Site -Filter "$FilterRoot/action" -Name "url" -Value "https://$OriginMachineFullyQualifiedName/{R:1}"
 
     Stop-WebCommitDelay
 }
