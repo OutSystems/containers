@@ -26,15 +26,15 @@ node {
 
     try {
         psScript = """
-        ${baseJenkinsPath}/pipelines/ContainerUndeploy.ps1 -SiteName "Default Web Site" `
-                                                           -ApplicationKey "${applicationKey}" `
-                                                           -OperationID "${operationId}" `
-                                                           -BundlesFolder "${targetPath}" `
-                                                           -SubdomainsFolder "" `
-                                                           -UnzippedBundlesFolder "${unzippedBundlesPath}" `
-                                                           -ConfigsFolder "${configPath}" `
-                                                           -SecretsFolder "${secretsPath}" `
-                                                           -ResultsFolder "${resultPath}"
+        ${baseJenkinsPath}/pipelines/ContainerRemove.ps1    -SiteName "Default Web Site" `
+                                                            -ApplicationKey "${applicationKey}" `
+                                                            -OperationID "${operationId}" `
+                                                            -BundlesFolder "${targetPath}" `
+                                                            -SubdomainsFolder "" `
+                                                            -UnzippedBundlesFolder "${unzippedBundlesPath}" `
+                                                            -ConfigsFolder "${configPath}" `
+                                                            -SecretsFolder "${secretsPath}" `
+                                                            -ResultsFolder "${resultPath}"
         """
 
         def msg = powershell(returnStdout: true, script: psScript)
