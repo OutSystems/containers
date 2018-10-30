@@ -88,6 +88,10 @@ Function GetHoldOfZipFile {
 
                     if (-not $(KillNetworkFileHandles -Filepath $Filepath)) {
                         EchoAndLog "'$SourceIdentifier': No network file handles found for '$Filepath'."
+
+                        if (-not $(KillFileHandles -Filepath $Filepath)) {
+                            EchoAndLog "'$SourceIdentifier': No local file handles found for '$Filepath'."
+                        }
                     }
                 } else {
                     throw "Unable to access '$Filepath'. Exception: $_"
@@ -109,6 +113,49 @@ Function IsNumeric {
     }
 
     return $Value -match '^[0-9]+$'
+}
+
+Function KillFileHandles {
+    param(
+        [Parameter(mandatory=$true)][string]$Filepath
+    )
+
+    $status = $false
+
+    try {
+        $HandleExeRelativePath = "thirdparty\Handle.exe"
+
+        $HandleExePath = $(Join-Path -Path "$ExecutionPath" -ChildPath $HandleExeRelativePath)
+
+        if (-not Test-Path $HandleExePath) {
+            EchoAndLog "'$HandleExeRelativePath' not found, doing nothing."
+            return $true
+        }
+
+        $handleListOutput = Invoke-Expression "$HandleExePath '$Filepath'"
+
+        foreach ($listLine in $handleListOutput) {
+            if ($listLine.contains("File") -and $listLine.contains("$Filepath")) {
+                $split = $listLine -split "\s+"
+
+                $HandlePID = $split[2]
+                $HandleHex = $split[5]
+
+                $handleKillOutput = Invoke-Expression "$HandleExePath -c $HandleHex -y -p $HandlePID"
+
+                if ($handleKillOutput -like "*Handle closed.") {
+                    EchoAndLog "Killed local file handle: '$($handleKillOutput -like "*$Filepath")'."
+                    $status = $true
+                } else {
+                    EchoAndLog "Unable to close local file handle: '$handleKillOutput'."
+                }
+            }
+        }
+    } catch {
+        throw "Critical failure on KillFileHandles: $_"
+    }
+
+    return $status
 }
 
 Function KillNetworkFileHandles {
