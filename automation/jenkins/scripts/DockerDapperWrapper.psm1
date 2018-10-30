@@ -111,8 +111,8 @@ Function RunContainer {
 
     $SiteName = $(CleanUpSiteName -ApplicationInfo $ApplicationInfo)
 
-    $SetVolumeConfigs = "-v $($ApplicationVolumesFolders.ConfigsFolderInHost):$($ApplicationVolumesFolders.ConfigsFolderInContainer)"
-    $SetVolumeSecrets = "-v $($ApplicationVolumesFolders.SecretsFolderInHost):$($ApplicationVolumesFolders.SecretsFolderInContainer)"
+    $SetVolumeConfigs = "-v $($ApplicationVolumesFolders.ConfigsFolderInHost):$($ApplicationVolumesFolders.ConfigsFolderInContainer):ro"
+    $SetVolumeSecrets = "-v $($ApplicationVolumesFolders.SecretsFolderInHost):$($ApplicationVolumesFolders.SecretsFolderInContainer):ro"
     $SetLabels = "-l $($ApplicationInfo.ApplicationKey) -l $($ApplicationInfo.OperationID) -l $SiteName"
 
     $DockerRunCmd = "& docker run -dit $SetVolumeConfigs $SetVolumeSecrets $SetLabels $ImageID 2>&1"
