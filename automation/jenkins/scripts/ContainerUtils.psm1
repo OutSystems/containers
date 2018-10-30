@@ -342,35 +342,64 @@ Function RunDockerContainer {
     }
 }
 
-Function SaveErrorInJSONFormat {
+Function CreateErrorResultFile {
     param (
         [Parameter(Mandatory=$true)][string]$ResultsFolder,
-        [Parameter(Mandatory=$true)][string]$FileName,
+        [Parameter(Mandatory=$true)][string]$ApplicationKey,
+        [Parameter(Mandatory=$true)][string]$OperationID,
         [Parameter(Mandatory=$true)][string]$ErrorGUID
     )
 
-    $FileName = $(RemoveLastInstance -Of '.zip' -In $FileName)
+    $ErrorMessage = @{}
+    $ErrorMessage.Error = @{}
+    $ErrorMessage.Error.Message = '[Guru Meditation Error]: Aborted deployment! Something went wrong when building the image or spinning up the container. For more info, search for [' + $ErrorGUID + '] in the log file.'
 
-    EchoAndLog "'$FileName' creating error '$global:PrepareDone' & '$global:DeployDone' files..."
+    CreateResultFile -ResultsFolder $ResultsFolder `
+                     -ApplicationKey $ApplicationKey `
+                     -OperationID $OperationID `
+                     -Type $global:PrepareDone `
+                     -InputObject $(ConvertTo-Json $ErrorMessage) `
+                     -IsError
+
+    CreateResultFile -ResultsFolder $ResultsFolder `
+                     -ApplicationKey $ApplicationKey `
+                     -OperationID $OperationID `
+                     -Type $global:DeployDone `
+                     -InputObject $(ConvertTo-Json $ErrorMessage) `
+                     -IsError
+}
+
+Function CreateResultFile {
+    param (
+        [Parameter(Mandatory=$true)][string]$ResultsFolder,
+        [Parameter(Mandatory=$true)][string]$ApplicationKey,
+        [Parameter(Mandatory=$true)][string]$OperationID,
+        [Parameter(Mandatory=$true)][string]$Type,
+        [string]$InputObject="{}",
+        [switch]$IsError=$False
+    )
+
+    $FileName = "$($ApplicationKey)_$($OperationID)"
+
+    EchoAndLog "'$FileName' creating '$Type' file..."
 
     $ResultsFilePath = $(Join-Path -Path $ResultsFolder -ChildPath $FileName)
 
-    if (-not $(Test-Path $ResultsFilePath)) {
-        # Apparently Out-File does not create subfolders, so we need to go the other way round
-        New-Item -Force -Path $($ResultsFilePath + $global:PrepareDone)
+    # Apparently Out-File does not create subfolders, so we need to go the other way round
+    New-Item -Force -Path $($ResultsFilePath + $Type)
+    Out-File -Force -FilePath $($ResultsFilePath + $Type) -InputObject $InputObject
+
+    $OperationType = switch ( $Type ) {
+        "$global:PrepareDone"   { 'image build' }
+        "$global:DeployDone"   { 'container run' }
+        "$global:UndeployDone"   { 'container remove' }
     }
 
-    $ErrorMessage = @{}
-    $ErrorMessage.Error = @{}
-    $ErrorMessage.Error.Message = '[R&D Internal Message]: Aborted deployment! Something went wrong when building the image or spinning up the container. For more info, search for [' + $ErrorGUID + '] in: [\\amazing.' + $(hostname) + '.domain.outsystems.com\opt\DockerWatcher\logs].'
+    if ($IsError) {
+        $OperationType += " ERROR"
+    }
 
-    $PrepareDoneFilePath = $($ResultsFilePath + $global:PrepareDone)
-    $DeployDoneFilePath = $($ResultsFilePath + $global:DeployDone)
-
-    Out-File -Force -FilePath $PrepareDoneFilePath -InputObject $(ConvertTo-Json $ErrorMessage)
-    Out-File -Force -FilePath $DeployDoneFilePath -InputObject $(ConvertTo-Json $ErrorMessage)
-
-    EchoAndLog "'$FileName' error info is available @ '$PrepareDoneFilePath' or '$DeployDoneFilePath'."
+    EchoAndLog "'$FileName' $OperationType info is available @ '$($ResultsFilePath + $Type)'."
 }
 
 Function CreatePrepareDoneFile {
@@ -380,17 +409,10 @@ Function CreatePrepareDoneFile {
         [Parameter(Mandatory=$true)][string]$OperationID
     )
 
-    $FileName = "$($ApplicationKey)_$($OperationID)"
-
-    EchoAndLog "'$FileName' creating '$global:PrepareDone' file..."
-
-    $ResultsFilePath = $(Join-Path -Path $ResultsFolder -ChildPath $FileName)
-
-    # Apparently Out-File does not create subfolders, so we need to go the other way round
-    New-Item -Force -Path $($ResultsFilePath + $global:PrepareDone)
-    Out-File -Force -FilePath $($ResultsFilePath + $global:PrepareDone) -InputObject "{}" # Nothing is written here
-
-    EchoAndLog "'$FileName' image build info is available @ '$($ResultsFilePath + $global:PrepareDone)'."
+    CreateResultFile -ResultsFolder $ResultsFolder `
+                     -ApplicationKey $ApplicationKey `
+                     -OperationID $OperationID `
+                     -Type $global:PrepareDone
 }
 
 Function CreateDeployDoneFile {
@@ -402,22 +424,15 @@ Function CreateDeployDoneFile {
         [switch]$SkipPing=$False
     )
 
-    $FileName = "$($ApplicationKey)_$($OperationID)"
-
-    EchoAndLog "'$FileName' creating '$global:DeployDone' file..."
-
-    $ResultsFilePath = $(Join-Path -Path $ResultsFolder -ChildPath $FileName)
-
-    # Apparently Out-File does not create subfolders, so we need to go the other way round
-    New-Item -Force -Path $($ResultsFilePath + $global:DeployDone)
-
     if ($SkipPing) {
         $ContainerInfo | Add-Member -Name "SkipPing" -Value "True" -MemberType NoteProperty
     }
 
-    Out-File -Force -FilePath $($ResultsFilePath + $global:DeployDone) -InputObject $(ConvertTo-Json $ContainerInfo)
-
-    EchoAndLog "'$FileName' container run info is available @ '$($ResultsFilePath + $global:DeployDone)'."
+    CreateResultFile -ResultsFolder $ResultsFolder `
+                     -ApplicationKey $ApplicationKey `
+                     -OperationID $OperationID `
+                     -Type $global:DeployDone `
+                     -InputObject $(ConvertTo-Json $ContainerInfo)
 }
 
 Function CreateUndeployDoneFile {
@@ -427,17 +442,10 @@ Function CreateUndeployDoneFile {
         [Parameter(Mandatory=$true)][string]$OperationID
     )
 
-    $FileName = "$($ApplicationKey)_$($OperationID)"
-
-    EchoAndLog "'$FileName' creating '$global:UndeployDone' file..."
-
-    $ResultsFilePath = $(Join-Path -Path $ResultsFolder -ChildPath $FileName)
-
-    # Apparently Out-File does not create subfolders, so we need to go the other way round
-    New-Item -Force -Path $($ResultsFilePath + $global:UndeployDone)
-    Out-File -Force -FilePath $($ResultsFilePath + $global:UndeployDone) -InputObject "{}" # Nothing is written here
-
-    EchoAndLog "'$FileName' undeploy done info is available @ '$($ResultsFilePath + $global:UndeployDone)'."
+    CreateResultFile -ResultsFolder $ResultsFolder `
+                     -ApplicationKey $ApplicationKey `
+                     -OperationID $OperationID `
+                     -Type $global:UndeployDone
 }
 
 Function GetDockerContainerInfo {
