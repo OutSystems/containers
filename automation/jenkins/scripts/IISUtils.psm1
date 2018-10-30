@@ -107,13 +107,7 @@ Function AddProxyHeaderInboundRule {
 
     $FilterRoot = "$FilterRewriteRules/rule[@name='$RuleName']"
 
-    Start-WebCommitDelay
-
     Clear-WebConfiguration -PSPath $Site -Filter $FilterRoot
-
-    Stop-WebCommitDelay
-
-    Start-WebCommitDelay
 
     $HttpsState = if ($Proto -eq "Https") { "ON" } else { "OFF" }
     Add-WebConfigurationProperty -PSPath $Site -Filter "$FilterRewriteRules" -Name "." -Value @{name=$RuleName; stopProcessing='False'} -AtIndex $AtIndex
@@ -122,8 +116,6 @@ Function AddProxyHeaderInboundRule {
     Set-WebConfigurationProperty -PSPath $Site -Filter "$FilterRoot/conditions" -Name "." -Value @{logicalGrouping="MatchAll";trackAllCaptures="false"}
     Set-WebConfiguration -PSPath $Site -Filter "$FilterRoot/conditions" -Value @{input="{HTTPS}";pattern=$HttpsState}
     Set-WebConfiguration -PSPath $Site -Filter "$FilterRoot/serverVariables" -Value (@{name="HTTP_X_FORWARDED_PROTO";value=$Proto.ToLowerInvariant()})
-
-    Stop-WebCommitDelay
 }
 
 Function AddURLRewriteInboundRule {
@@ -189,7 +181,11 @@ Function GetURLRewriteInboundRule {
 
     $FilterRoot = "system.webServer/rewrite/rules/rule[@name='$RuleName']"
 
+    Start-WebCommitDelay
+
     Get-WebConfigurationProperty -PSPath $Site -Filter $FilterRoot -Name "."
+
+    Start-WebCommitDelay
 }
 
 Function CheckIfRewriteRulesCanBeRemoved {
