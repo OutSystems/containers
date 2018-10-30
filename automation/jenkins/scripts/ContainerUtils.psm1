@@ -93,28 +93,6 @@ Function RunJustBeforeDeployDone {
     }
 }
 
-Function CheckIfRewriteRulesCanBeRemoved {
-    param(
-        [Parameter(mandatory=$true)][ApplicationInfo]$ApplicationInfo,
-        [Parameter(mandatory=$true)][object]$ContainerInfo,
-        [Parameter(mandatory=$true)][string[]]$ModuleNames
-    )
-
-    foreach ($ModuleName in $ModuleNames) {
-        $RewriteURL = $(GetURLRewriteInboundRule -SiteName $ApplicationInfo.SiteName -RuleName $ModuleName)
-
-        $ContainerHostname = $ContainerInfo.Config.Hostname
-
-        if ($RewriteURL -and $RewriteURL.action.url.Contains("http://$ContainerHostname/")) {
-            continue
-        } else {
-            return $false
-        }
-    }
-
-    return $true
-}
-
 Function UnzipContainerBundle {
     param(
         [Parameter(mandatory=$true)][string]$UnzipFolder,
@@ -658,7 +636,8 @@ Function HandleDeploy {
 
     $ContainerInfo = $(GetDockerContainerInfo -ContainerID $ContainerID)
 
-    $ContainerHostname = $ContainerInfo.Config.Hostname
+    # $ContainerInfo.Config.Hostname is not working on Windows Server Core, using IPAddress
+    $ContainerHostname = $ContainerInfo.NetworkSettings.Networks.nat.IPAddress
 
     $UnzippedBundleFolder = $(Join-Path -Path $UnzippedBundlesFolder -ChildPath $ApplicationInfo.FullName)
     $ModuleNames = $(GetSubFolders $(Join-Path -Path $UnzippedBundleFolder -ChildPath $global:ModulesFolder))
@@ -715,8 +694,11 @@ Function HandleContainerBundleDeletion {
     EchoAndLog "'$SourceIdentifier': Trying to remove Rewrite Rules for '$FileName'..."
 
     if ($ModuleNames) {
+        # $ContainerInfo.Config.Hostname is not working on Windows Server Core, using IPAddress
+        $ContainerHostname = $ContainerInfo.NetworkSettings.Networks.nat.IPAddress
+
         if (CheckIfRewriteRulesCanBeRemoved -ApplicationInfo $ApplicationInfo `
-                                            -ContainerInfo $ContainerInfo `
+                                            -TargetHostName $ContainerHostname `
                                             -ModuleNames $ModuleNames) {
 
             RemoveReroutingRules    -ApplicationInfo $ApplicationInfo `

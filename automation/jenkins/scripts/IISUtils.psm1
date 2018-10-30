@@ -79,8 +79,6 @@ Function AddFallbackRewriteToSelfInboundRule {
     Stop-WebCommitDelay
 }
 
-
-
 Function AddProxyHeaderInboundRule {
     param(
         [Parameter(mandatory=$true)][string]$SiteName,
@@ -181,6 +179,26 @@ Function GetURLRewriteInboundRule {
     $FilterRoot = "system.webServer/rewrite/rules/rule[@name='$RuleName']"
 
     Get-WebConfigurationProperty -PSPath $Site -Filter $FilterRoot -Name "."
+}
+
+Function CheckIfRewriteRulesCanBeRemoved {
+    param(
+        [Parameter(mandatory=$true)][ApplicationInfo]$ApplicationInfo,
+        [Parameter(mandatory=$true)][string]$TargetHostName,
+        [Parameter(mandatory=$true)][string[]]$ModuleNames
+    )
+
+    foreach ($ModuleName in $ModuleNames) {
+        $RewriteURL = $(GetURLRewriteInboundRule -SiteName $ApplicationInfo.SiteName -RuleName $ModuleName)
+
+        if ($RewriteURL -and $RewriteURL.action.url.Contains("http://$TargetHostName/")) {
+            continue
+        } else {
+            return $false
+        }
+    }
+
+    return $true
 }
 
 Function AddReroutingRules {
