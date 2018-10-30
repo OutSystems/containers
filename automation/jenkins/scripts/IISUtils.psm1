@@ -9,34 +9,35 @@ Function CreateSiteForWildcard {
         [Parameter(mandatory=$true)][string]$SiteName
     )
 
-    if (-not $(Get-WebSite -Name $SiteName)) {
-        $Domain = (Get-WmiObject Win32_ComputerSystem).Domain
-        $Hostname = $($(hostname) + "." + $Domain)
+    try {
+        Import-Module IISAdministration
 
-        Start-WebCommitDelay
+        if (-not $(Get-IISSite -Name $SiteName)) {
+            $Domain = (Get-WmiObject Win32_ComputerSystem).Domain
+            $Hostname = $($(hostname) + "." + $Domain)
 
-        New-Item -Force -Path $SiteFolder -Type Directory
+            New-Item -Force -Path $SiteFolder -Type Directory
 
-        $Site = "iis:\Sites\$SiteName"
+            Reset-IISServerManager -Confirm:$False
+            $Manager = Get-IISServerManager
 
-        New-Item $Site -Bindings @{protocol="http";bindingInformation="*:80:$SiteName.$HostName"},@{protocol="https";bindingInformation="*:443:$SiteName.$HostName"} -physicalPath $SiteFolder -Force
+            $NewSite = $Manager.Sites.Add($SiteName, "http", "*:80:$SiteName.$Hostname", $SiteFolder)
+            $NewSite.Bindings.Add("*:443:$SiteName.$Hostname", "https")
 
-        Stop-WebCommitDelay
+            $Manager.CommitChanges()
 
-        EchoAndLog "Created '$SiteName' website."
+            if ((Get-IISSite -Name $SiteName).State -ne "Started") {
+                Start-IISSite -Name $SiteName
 
-        Start-Website -Name $SiteName
+                EchoAndLog "Started '$SiteName' website (was not started after creation)."
+            }
 
-        EchoAndLog "Started '$SiteName' website."
-
-        # Just to force saving the web.config
-        Start-WebCommitDelay
-
-        Clear-WebConfiguration -PSPath $Site -Filter "system.webServer/rewrite/rules"
-
-        Stop-WebCommitDelay
-    } else {
-        EchoAndLog "Website '$SiteName' already exists. Nothing was done."
+            EchoAndLog "Created '$SiteName' website."
+        } else {
+            EchoAndLog "Website '$SiteName' already exists. Nothing was done."
+        }
+    } finally {
+        Remove-Module IISAdministration
     }
 }
 
