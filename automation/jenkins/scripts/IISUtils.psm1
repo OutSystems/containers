@@ -29,14 +29,6 @@ Function CreateSiteForWildcard {
 
         EchoAndLog "Started '$SiteName' website."
 
-        Start-WebCommitDelay
-
-        Set-WebConfiguration -Filter "/system.webServer/rewrite/allowedServerVariables" -Location "$SiteName" -Value (@{name="HTTP_X_FORWARDED_PROTO"})
-
-        Stop-WebCommitDelay
-
-        EchoAndLog "Added 'HTTP_X_FORWARDED_PROTO' allowed server variable to '$SiteName' website."
-
         # Just to force saving the web.config
         Start-WebCommitDelay
 
@@ -45,6 +37,24 @@ Function CreateSiteForWildcard {
         Stop-WebCommitDelay
     } else {
         EchoAndLog "Website '$SiteName' already exists. Nothing was done."
+    }
+}
+
+Function AddToAllowedServerVariables {
+    param(
+        [Parameter(mandatory=$true)][string]$SiteName,
+        [Parameter(mandatory=$true)][string]$VariableName
+    )
+
+    $Site = "iis:\sites\$SiteName"
+    $FilterRoot = "/system.webServer/rewrite/allowedServerVariables"
+    
+    if ($null -eq ((Get-WebConfigurationProperty -PSPath $Site -Filter $FilterRoot -Name ".")).Collection | Where-Object name -eq $VariableName) {
+        Set-WebConfiguration -Filter $FilterRoot -Location "$SiteName" -Value (@{name="$VariableName"})
+    
+        EchoAndLog "Added '$VariableName' allowed server variable to '$SiteName' website."
+    } else {
+        EchoAndLog "Website '$SiteName' already has configured the '$VariableName' allowed server variable. Nothing was done."
     }
 }
 
@@ -215,6 +225,8 @@ Function AddReroutingRules {
     } else {
         EchoAndLog "Pointing to 'Default Web Site'. No specific website was created."
     }
+
+    AddToAllowedServerVariables -SiteName $ApplicationInfo.SiteName -VariableName "HTTP_X_FORWARDED_PROTO"
 
     AddProxyHeaderInboundRule -SiteName $ApplicationInfo.SiteName -Proto "Https" -AtIndex 0
     AddProxyHeaderInboundRule -SiteName $ApplicationInfo.SiteName -Proto "Http" -AtIndex 1
