@@ -127,7 +127,7 @@ Function KillFileHandles {
 
         $HandleExePath = $(Join-Path -Path "$ExecutionPath" -ChildPath $HandleExeRelativePath)
 
-        if (-not Test-Path $HandleExePath) {
+        if (-not (Test-Path $HandleExePath)) {
             EchoAndLog "'$HandleExeRelativePath' not found, doing nothing."
             return $true
         }
