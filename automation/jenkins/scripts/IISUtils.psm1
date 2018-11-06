@@ -50,7 +50,7 @@ Function AddToAllowedServerVariables {
     $Site = "iis:\sites\$SiteName"
     $FilterRoot = "/system.webServer/rewrite/allowedServerVariables"
     
-    if ($null -eq ((Get-WebConfigurationProperty -PSPath $Site -Filter $FilterRoot -Name ".")).Collection | Where-Object name -eq $VariableName) {
+    if ($null -eq ((Get-WebConfigurationProperty -PSPath $Site -Filter $FilterRoot -Name ".").Collection | Where-Object name -eq $VariableName)) {
         Set-WebConfiguration -Filter $FilterRoot -Location "$SiteName" -Value (@{name="$VariableName"})
     
         EchoAndLog "Added '$VariableName' allowed server variable to '$SiteName' website."
