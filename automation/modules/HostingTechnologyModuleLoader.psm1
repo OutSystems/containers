@@ -145,6 +145,35 @@ Function LogResultError {
     }
 }
 
+Function StringifyParameters {
+    Param (
+        [Parameter(Mandatory=$true)][String]$Address,
+        [Parameter(Mandatory=$true)][String]$ApplicationName,
+        [Parameter(Mandatory=$true)][String]$ApplicationKey,
+        [Parameter(Mandatory=$true)][String]$OperationId,
+        [Parameter(Mandatory=$true)][String]$TargetPath,
+        [Parameter(Mandatory=$true)][String]$ResultPath,
+        [Parameter(Mandatory=$true)][String]$ConfigPath,
+        [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
+    )
+    
+    $StringifiedAdditionalParameters = ""
+
+    $StringifiedAdditionalParameters += "-Address '$Address' `` "
+    $StringifiedAdditionalParameters += "-ApplicationName '$ApplicationName' `` "
+    $StringifiedAdditionalParameters += "-ApplicationKey '$ApplicationKey' `` "
+    $StringifiedAdditionalParameters += "-OperationId '$OperationId' `` "
+    $StringifiedAdditionalParameters += "-TargetPath '$TargetPath' `` "
+    $StringifiedAdditionalParameters += "-ResultPath '$ResultPath' `` "
+    $StringifiedAdditionalParameters += "-ConfigPath '$ConfigPath' `` "
+
+    foreach ($Key in $AdditionalParameters.Keys) { 
+        $StringifiedAdditionalParameters += "-$Key '$($AdditionalParameters[$Key])' `` " 
+    }
+
+    return $StringifiedAdditionalParameters
+}
+
 Function ExecOperation {
     Param (
         [Parameter(Mandatory=$true)][String]$OperationName,
@@ -171,7 +200,17 @@ Function ExecOperation {
         $ConfigPath = $(ConvertIfFromBase64 -Text $ConfigPath)
 
         WriteLog "Starting [$OperationName] for app '$ApplicationName' ($($ApplicationKey)_$($OperationId))."
-        WriteLog -Level "DEBUG" -Message "Parameters: -Address '$Address' `` -ApplicationName '$ApplicationName' `` -ApplicationKey '$ApplicationKey' `` -OperationId '$OperationId' `` -TargetPath '$TargetPath' `` -ResultPath '$ResultPath' `` -ConfigPath '$ConfigPath' ``" -LogFile $LogFile
+
+        $StringifiedAdditionalParameters = $(StringifyParameters    -Address $Address `
+                                                                    -ApplicationName $ApplicationName `
+                                                                    -ApplicationKey $ApplicationKey `
+                                                                    -OperationId $OperationId `
+                                                                    -TargetPath $TargetPath `
+                                                                    -ResultPath $ResultPath `
+                                                                    -ConfigPath $ConfigPath `
+                                                                    -AdditionalParameters $AdditionalParameters)
+
+        WriteLog -Level "DEBUG" -Message "Parameters: $StringifiedAdditionalParameters" -LogFile $LogFile
 
         # The functions for each of the operations will be defined in a given module's Wrapper.psm1
         $OperationResult = $(&"Wrapper_$OperationName"  -Address $Address `
@@ -185,6 +224,8 @@ Function ExecOperation {
 
         if ($OperationResult -and ($OperationResult.Error -or $OperationResult.SkipPing)) {
             $Result = $OperationResult
+        } else {
+            $Result.AdditionalInfo = "Everything went well. Check [ $($global:LogFilePath) ] for more info."
         }
 
     } catch {
