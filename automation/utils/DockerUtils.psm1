@@ -62,7 +62,7 @@ Function CreateLabels {
         } else {
             $FormattedLabels += " --label `"$(CleanUpLabel $Key)`""
         }
-        
+
     }
 
     return $FormattedLabels
@@ -111,7 +111,7 @@ Function ExecuteDockerCommand {
     if ( ((-not $CanHaveNullResult) -and (-not $DockerCmdInfo)) -or $DockerCmdInfo.Exception ) {
         throw "Tried to do '$DockerCmd'. Output: '$DockerCmdInfo' | Exception: $($DockerCmdInfo.Exception)."
     } 
-    
+
     return $DockerCmdInfo
 }
 
@@ -259,9 +259,9 @@ Function TagDockerImage {
         [Parameter(Mandatory=$true)][String]$RemoteRegistry,
         [Parameter(Mandatory=$true)][String]$Tag
     )
-    
+
     $SetRepositoryTag = "$($RemoteRegistry):$($Tag)"
-    
+
     $(ExecuteDockerCommand -ArgumentList "tag", $ImageId, $SetRepositoryTag -CanHaveNullResult)
 
     WriteLog -Level "DEBUG" -Message "docker tag succeeded"
@@ -274,7 +274,7 @@ Function PushDockerImage {
     )
 
     $SetRepositoryTag = "$($RemoteRegistry):$($Tag)"
-    
+
     $Result = $(ExecuteDockerCommand -ArgumentList "push", $SetRepositoryTag)
 
     WriteLog -Level "DEBUG" -Message "docker push: $($Result -join "`r`n")"
@@ -337,7 +337,8 @@ Function RunDockerContainer {
     Param (
         [Parameter(Mandatory=$true)][String]$ImageId,
         [Parameter(Mandatory=$true)][Hashtable]$Labels,
-        [Parameter(Mandatory=$true)][Hashtable]$VolumeMappings
+        [Parameter(Mandatory=$true)][Hashtable]$VolumeMappings,
+        [Parameter(Mandatory=$false)][String[]]$ExtraRunParameters
     )
 
     [String]$ContainerId = $null
@@ -345,7 +346,13 @@ Function RunDockerContainer {
     $SetVolumeMappings = $(CreateVolumeMappings -VolumeMappings $VolumeMappings)
     $SetLabels = $(CreateLabels -Labels $Labels)
 
-    $ContainerId = [String]$(ExecuteDockerCommand -ArgumentList "run", "-dit", $SetVolumeMappings, $SetLabels, $ImageId)
+    $Parameters = @("run", "-dit")
+    if ($ExtraRunParameters) {
+        $Parameters += $ExtraRunParameters
+    }
+    $Parameters += @($SetVolumeMappings, $SetLabels, $ImageId)
+
+    $ContainerId = [String]$(ExecuteDockerCommand -ArgumentList $Parameters)
 
     return $ContainerId
 }
@@ -399,14 +406,14 @@ Function TryToMakeSureThatDockerContainerIsRunning {
 
     if (-not $(DockerContainerIsRunning -ContainerId $ContainerId)) {
         $ContainerLogFilePath = Join-Path -Path $global:LogFolder -ChildPath "container-$ContainerId.log"
-        
+
         Start-Sleep -Seconds 10
 
         $DockerContainerLogs = $(GetDockerContainerLogs $ContainerId)
 
         if ($DockerContainerLogs) {
             $DockerContainerLogs = $($DockerContainerLogs -join "`r`n")
-            
+
             Add-Content $ContainerLogFilePath -Value "`r`n$DockerContainerLogs" -Encoding UTF8
 
             $Info = "Check '$ContainerLogFilePath' for more info."
@@ -422,7 +429,8 @@ Function RunDockerContainerWithRetries {
     Param (
         [Parameter(Mandatory=$true)][String]$ImageId,
         [Parameter(Mandatory=$true)][Hashtable]$Labels,
-        [Parameter(Mandatory=$true)][Hashtable]$VolumeMappings
+        [Parameter(Mandatory=$true)][Hashtable]$VolumeMappings,
+        [Parameter(Mandatory=$false)][String[]]$ExtraRunParameters
     )
 
     try {
@@ -436,12 +444,14 @@ Function RunDockerContainerWithRetries {
                         [Parameter(Mandatory=$true)][String]$BlockImageId,
                         [Parameter(Mandatory=$true)][String]$BlockFullAppName,
                         [Parameter(Mandatory=$true)][Hashtable]$BlockLabels,
-                        [Parameter(Mandatory=$true)][Hashtable]$BlockVolumeMappings
+                        [Parameter(Mandatory=$true)][Hashtable]$BlockVolumeMappings,
+                        [Parameter(Mandatory=$true)][String[]]$BlockExtraRunParameters
                     )
 
                     [String]$BlockContainerId = $(RunDockerContainer    -ImageId $BlockImageId `
                                                                         -Labels $BlockLabels `
-                                                                        -VolumeMappings $BlockVolumeMappings)
+                                                                        -VolumeMappings $BlockVolumeMappings `
+                                                                        -ExtraRunParameters $BlockExtraRunParameters)
 
                     # We need to check if the container is actually running
                     # The container might exit as soon as it starts due to some transient state
@@ -455,7 +465,7 @@ Function RunDockerContainerWithRetries {
 
                     return [String]$BlockContainerId
                 } `
-                -ArgumentList $ImageId, $FullAppName, $Labels, $VolumeMappings `
+                -ArgumentList $ImageId, $FullAppName, $Labels, $VolumeMappings, $ExtraRunParameters `
                 -ExceptionMessage "Container object is null." `
                 -NRetries 3
             )
@@ -552,7 +562,7 @@ Function GetDockerContainersWithLabels {
         WriteLog -Level "DEBUG" -Message "Found [$OperationName] containers with IDs [ $($ContainerIds -join ', ') ] for the following labels: [ $StringifiedLabels ]"
     } else {
         WriteLog -Level "DEBUG" -Message "No containers were found for [$OperationName] with labels: [ $StringifiedLabels ]"
-    }    
+    }
 
     return $ContainerIds
 }
@@ -572,7 +582,6 @@ Function GetAllDockerContainersWithLabels {
 
     return $(GetDockerContainersWithLabels -Labels $Labels -Flags "-a" -OperationName "ALL")
 }
-
 
 Function StopDockerContainers {
     Param (
