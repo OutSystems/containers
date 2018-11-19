@@ -106,7 +106,7 @@ Function NewWrapperResult {
     $Result = @{}
     $Result.Error = $null
     $Result.SkipPing = $False
-    
+
     return $Result
 }
 
@@ -119,17 +119,13 @@ Function CreateMarkerFile {
         [Parameter(Mandatory=$true)][AllowNull()]$WrapperResult
     )
 
-    if (-not $WrapperResult) {
-        $WrapperResult = $(NewWrapperResult)
-    }
-
-    $FileName = "$($ApplicationKey)_$($OperationId)"
+    $FileName = $(GetAppFullName -ApplicationKey $ApplicationKey -OperationId $OperationId)
 
     WriteLog -Level "DEBUG" -Message "'$FileName' creating '$MarkerFileExtension' file..."
 
     if (-not (Test-Path $ResultPath)) {
         $ErrorMessage = "The result path '$ResultPath' is not accessible."
-        
+
         WriteLog "$ErrorMessage"
         throw $ErrorMessage
     }
@@ -138,25 +134,29 @@ Function CreateMarkerFile {
 
     # Apparently Out-File does not create subfolders, so we need to go the other way round
     $(New-Item -Force -Path $($ResultsFilePath + $MarkerFileExtension)) 2>&1>$null
-       
+
+    if (-not $WrapperResult) {
+        $WrapperResult = $(NewWrapperResult)
+    }
+
+    $MarkerFileData = @{}
+
     if ($WrapperResult.Error) {
         $ErrorMessage = @{}
         $ErrorMessage.Error = @{}
         $ErrorMessage.Error.Message = "Container Automation: Check the log '$($global:LogFilePath)' for more info."
-        $ContainerInfo = $ErrorMessage
-    } else {
-        $ContainerInfo = New-Object Object
+        $MarkerFileData = $ErrorMessage
     }
 
     if ($WrapperResult.AdditionalInfo) {
-        $ContainerInfo = $WrapperResult.AdditionalInfo
+        $MarkerFileData.AdditionalInfo = $WrapperResult.AdditionalInfo
     }
 
     if ($WrapperResult.SkipPing) {
-        $ContainerInfo | Add-Member -Name "SkipPing" -Value "True" -MemberType NoteProperty
+        $MarkerFileData.SkipPing = $True
     }
 
-    Out-File -Force -FilePath $($ResultsFilePath + $MarkerFileExtension) -InputObject $(ConvertTo-Json $ContainerInfo)
+    Out-File -Force -FilePath $($ResultsFilePath + $MarkerFileExtension) -InputObject $(ConvertTo-Json $MarkerFileData)
 
     WriteLog "'$FileName' info is available @ '$($ResultsFilePath + $MarkerFileExtension)'."
 }
