@@ -6,12 +6,14 @@ Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "GeneralUtils.psm1")
 
 Function CreateSiteForWildcard {
     Param (
-        [Parameter(Mandatory=$true)][String]$SiteFolderPath,
-        [Parameter(Mandatory=$true)][String]$SiteName
+        [Parameter(Mandatory=$false)][String]$SiteName,
+        [Parameter(Mandatory=$true)][String]$SiteFolderPath
     )
 
     try {
         Import-Module IISAdministration
+
+        $SiteName = $(EnsureSiteNameSanity -SiteName $SiteName)
 
         if (-not $(Get-IISSite -Name $SiteName)) {
             $Domain = (Get-WmiObject Win32_ComputerSystem).Domain
@@ -44,9 +46,11 @@ Function CreateSiteForWildcard {
 
 Function AddToAllowedServerVariables {
     Param (
-        [Parameter(Mandatory=$true)][String]$SiteName,
+        [Parameter(Mandatory=$false)][String]$SiteName,
         [Parameter(Mandatory=$true)][String]$VariableName
     )
+
+    $SiteName = $(EnsureSiteNameSanity -SiteName $SiteName)
 
     $Site = "iis:\sites\$SiteName"
     $FilterRoot = "/system.webServer/rewrite/allowedServerVariables"
@@ -62,9 +66,11 @@ Function AddToAllowedServerVariables {
 
 Function AddDefaultRewriteRule {
     Param (
-        [Parameter(Mandatory=$true)][String]$SiteName,
+        [Parameter(Mandatory=$false)][String]$SiteName,
         [Parameter(Mandatory=$true)][String]$TargetHostname
     )
+
+    $SiteName = $(EnsureSiteNameSanity -SiteName $SiteName)
 
     $RuleName = "RewriteToSelf"
 
@@ -93,10 +99,12 @@ Function AddDefaultRewriteRule {
 
 Function AddProxyHeaderInboundRule {
     Param (
-        [Parameter(Mandatory=$true)][String]$SiteName,
+        [Parameter(Mandatory=$false)][String]$SiteName,
         [Parameter(Mandatory=$true)][ValidateSet('Https', 'Http')][String]$Proto,
         [Parameter(Mandatory=$true)][String]$AtIndex
     )
+
+    $SiteName = $(EnsureSiteNameSanity -SiteName $SiteName)
 
     $RuleName = "AddProxyHeaders" + $Proto
 
@@ -121,10 +129,12 @@ Function AddProxyHeaderInboundRule {
 
 Function AddURLRewriteInboundRule {
     Param (
-        [Parameter(Mandatory=$true)][String]$SiteName,
+        [Parameter(Mandatory=$false)][String]$SiteName,
         [Parameter(Mandatory=$true)][String]$TargetHostName,
         [Parameter(Mandatory=$true)][String]$Path
     )
+
+    $SiteName = $(EnsureSiteNameSanity -SiteName $SiteName)
 
     $MatchString = $Path
     $RuleName = $Path
@@ -155,9 +165,11 @@ Function AddURLRewriteInboundRule {
 
 Function RemoveURLRewriteInboundRule {
     Param (
-        [Parameter(Mandatory=$true)][String]$SiteName,
+        [Parameter(Mandatory=$false)][String]$SiteName,
         [Parameter(Mandatory=$true)][String]$RuleName
     )
+
+    $SiteName = $(EnsureSiteNameSanity -SiteName $SiteName)
 
     WriteLog -Level "DEBUG" -Message "Removing URL Rewrite Inbound Rule with name '$RuleName' from '$SiteName' website."
 
@@ -174,9 +186,11 @@ Function RemoveURLRewriteInboundRule {
 
 Function GetURLRewriteInboundRule {
     Param (
-        [Parameter(Mandatory=$true)][String]$SiteName,
+        [Parameter(Mandatory=$false)][String]$SiteName,
         [Parameter(Mandatory=$true)][String]$RuleName
     )
+
+    $SiteName = $(EnsureSiteNameSanity -SiteName $SiteName)
 
     $Site = "iis:\sites\$SiteName"
 
@@ -191,10 +205,12 @@ Function GetURLRewriteInboundRule {
 
 Function CheckIfRewriteRulesCanBeRemoved {
     Param (
-        [Parameter(Mandatory=$true)][String]$SiteName,
+        [Parameter(Mandatory=$false)][String]$SiteName,
         [Parameter(Mandatory=$true)][String]$TargetHostName,
         [Parameter(Mandatory=$true)][String[]]$Paths
     )
+
+    $SiteName = $(EnsureSiteNameSanity -SiteName $SiteName)
 
     foreach ($Path in $Paths) {
         $RewriteURL = $(GetURLRewriteInboundRule -SiteName $SiteName -RuleName $Path)
@@ -210,11 +226,13 @@ Function CheckIfRewriteRulesCanBeRemoved {
 }
 
 Function AddReroutingRules {
-    Param (        
-        [Parameter(Mandatory=$true)][String]$SiteName,
+    Param (
+        [Parameter(Mandatory=$false)][String]$SiteName,
         [Parameter(Mandatory=$true)][String]$TargetHostName,
         [Parameter(Mandatory=$true)][String[]]$Paths
     )
+
+    $SiteName = $(EnsureSiteNameSanity -SiteName $SiteName)
 
     AddToAllowedServerVariables -SiteName $SiteName -VariableName "HTTP_X_FORWARDED_PROTO"
 
@@ -230,9 +248,11 @@ Function AddReroutingRules {
 
 Function RemoveReroutingRules {
     Param (
-        [Parameter(Mandatory=$true)][String]$SiteName,
+        [Parameter(Mandatory=$false)][String]$SiteName,
         [Parameter(Mandatory=$true)][String[]]$Paths
     )
+
+    $SiteName = $(EnsureSiteNameSanity -SiteName $SiteName)
 
     RemoveURLRewriteInboundRule -SiteName $SiteName `
                                 -RuleName "AddProxyHeadersHttps"
@@ -246,4 +266,16 @@ Function RemoveReroutingRules {
         RemoveURLRewriteInboundRule -SiteName $SiteName `
                                     -RuleName $RuleName
     }
+}
+
+Function EnsureSiteNameSanity {
+    Param (
+        [Parameter(Mandatory=$false)][String]$SiteName
+    )
+
+    if (-not $SiteName) {
+        $SiteName = "Default Web Site"
+    }
+
+    return $SiteName
 }
