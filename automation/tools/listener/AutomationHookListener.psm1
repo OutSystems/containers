@@ -80,11 +80,11 @@ Function CreateAsyncJob {
         Import-Module $(Join-Path -Path $BlockExecutionPath -ChildPath "../../utils/GeneralUtils.psm1") -Force
 
         $LogPath = Join-Path -Path $BlockExecutionPath -ChildPath "../../logs/$BlockHostingTechnology"
-        $LogPrefix = "$BlockRequestGUID_$BlockMethodName"
+        $LogPrefix = "$($BlockRequestGUID)_$($BlockMethodName)"
 
         ConfigureLogger -LogFolder $LogPath -LogPrefix $LogPrefix
 
-        WriteLog -Level "INFO" -Message "[$BlockRequestGUID] > Logging [$BlockMethodName] operation to [ $($global:LogFilePath))]." -LogFile $BlockLogFile
+        WriteLog -Level "INFO" -Message "[$BlockRequestGUID] > Logging [$BlockMethodName] operation to [ $($global:LogFilePath) ]." -LogFile $BlockLogFile
 
         try {
             Import-Module $(Join-Path -Path $BlockExecutionPath -ChildPath "../../modules/HostingTechnologyModuleLoader.psm1") -Force -ArgumentList $BlockHostingTechnology
@@ -101,7 +101,7 @@ Function CreateAsyncJob {
             WriteLog -Level "INFO" -Message "[$BlockRequestGUID] > [$BlockMethodName] operation finished successfully." -LogFile $BlockLogFile
         } catch {
             WriteLog -Level "FATAL" -Message "[$BlockRequestGUID] > [$BlockMethodName] operation finished with errors: $_ : $($_.ScriptStackTrace)." -LogFile $BlockLogFile
-            WriteLog -Level "FATAL" -Message "[$BlockRequestGUID] > Check log with prefix '$($LogPrefix)' in 'log/$BlockHostingTechnology/' for more info." -LogFile $BlockLogFile
+            WriteLog -Level "FATAL" -Message "[$BlockRequestGUID] > Check log [ $($global:LogFilePath) ] for more info." -LogFile $BlockLogFile
         }
     }
 
