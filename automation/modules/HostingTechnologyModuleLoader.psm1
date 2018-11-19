@@ -19,7 +19,7 @@ if ( (-not (Test-Path $SettingsForHostingTechnology)) -or (-not (Test-Path $Wrap
 }
 
 Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "GlobalSettings.psm1") -Force
-Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "Constants.psm1") -Force
+Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "GlobalConstants.psm1") -Force
 
 Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "../utils/Logger.psm1")
 Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "../utils/GeneralUtils.psm1") -Force
