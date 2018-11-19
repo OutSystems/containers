@@ -10,7 +10,7 @@ To debug using Visual Code:
 # select the Hosting Technology: needs to exist the implementation in /modules/{HostingTechnology}
 $HostingTechnology = "DockerEEPlusIIS"
 
-Import-Module C:/jenkins/modules/HostingTechnologyModuleLoader.psm1 -Force -ArgumentList $HostingTechnology
+Import-Module "$PSScriptRoot/../../modules/HostingTechnologyModuleLoader.psm1" -Force -ArgumentList $HostingTechnology
 
 $SiteName = "testing"
 $PlatformServerFQMN = "your.machine"

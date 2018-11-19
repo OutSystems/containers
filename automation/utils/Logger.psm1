@@ -34,7 +34,7 @@ Function ConfigureLogger {
         if (-not $LogName.EndsWith(".log")) {
             $LogName += ".log"
         }
-        
+
         $global:LogName = $LogName
     }
 
@@ -45,7 +45,7 @@ Function ConfigureLogger {
     if (-not $(Test-Path $global:LogFolder)) {
         $(New-Item -Force -Path $global:LogFolder -ItemType Directory) 2>&1>$null
     }
-    
+
     $global:LogFolder = Resolve-Path $global:LogFolder
 
     $global:LogFilePath = $(Join-Path -Path $global:LogFolder -ChildPath "$($global:LogPrefix)$($global:LogName)")
