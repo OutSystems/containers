@@ -10,8 +10,9 @@ if (-not $HostingTechnology) {
     throw "No Hosting Technology was specified!"
 }
 
-$SettingsForHostingTechnology = $(Join-Path -Path "$ExecutionPath" -ChildPath "$HostingTechnology/Settings.psm1")
-$WrapperForHostingTechnology = $(Join-Path -Path "$ExecutionPath" -ChildPath "$HostingTechnology/Wrapper.psm1")
+# The loader will search for the Wrapper and Settings files in the last folder of the modules folder tree
+$SettingsForHostingTechnology = (Get-ChildItem "$ExecutionPath" -Recurse | Where-Object { $_.FullName.EndsWith("$HostingTechnology\Settings.psm1") }).FullName
+$WrapperForHostingTechnology = (Get-ChildItem "$ExecutionPath" -Recurse | Where-Object { $_.FullName.EndsWith("$HostingTechnology\Wrapper.psm1") }).FullName
 
 if ( (-not (Test-Path $SettingsForHostingTechnology)) -or (-not (Test-Path $WrapperForHostingTechnology)) ) {
     throw "[$HostingTechnology] not correctly configured. Check if the required files (Settings.psm1 and Wrapper.psm1) exist in path '$(Split-Path $SettingsForHostingTechnology -Parent)' and are implementing the correct method signatures."
@@ -37,6 +38,9 @@ $global:ArtefactsBasePath = $(Resolve-Path $global:ArtefactsBasePath)
 
 Import-Module $SettingsForHostingTechnology -Force
 Import-Module $WrapperForHostingTechnology -Force
+
+WriteLog -Level "DEBUG" -Message "Loaded for Settings: '$SettingsForHostingTechnology'."
+WriteLog -Level "DEBUG" -Message "Loaded for Wrapper: '$WrapperForHostingTechnology'."
 
 Function ContainerBuild {
     Param (
