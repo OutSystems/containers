@@ -112,6 +112,26 @@ Function CreateAsyncJob {
     WriteLog -Level "DEBUG" -Message "[$RequestGUID] > Started job with Id [$($JobInfo.Id)]."
 }
 
+Function SendResponse {
+    Param (
+        [Parameter(Mandatory=$true)]$Response,
+        [Parameter(Mandatory=$true)][string]$Message
+    )
+
+    # Convert the data to UTF8 bytes
+    [byte[]]$Buffer = [System.Text.Encoding]::UTF8.GetBytes($Message)
+
+    $Response.ContentType = 'application/json';
+
+    # Set length of response
+    $Response.ContentLength64 = $Buffer.length
+
+    # Write response out and close
+    $Output = $Response.OutputStream
+    $Output.Write($Buffer, 0, $Buffer.length)
+    $Output.Close()
+}
+
 Function AutomationHookListener {
     Param (
         [Parameter(Mandatory=$true)][int]$Port
@@ -148,7 +168,11 @@ Function AutomationHookListener {
         WriteLog -Level "DEBUG" -Message "[$RequestGUID] > Received: $($Request.Url.ToString())"
 
         # Break from loop if GET Request sent to /end
-        if ($Request.Url -match '/end$') { 
+        if ($Request.Url -match '/end$') {
+            $Response.StatusCode = 200
+
+            SendResponse    -Response $Response `
+                            -Message "Stopped."
             break
         } else {
             $Result = ParseRequestRawURL -RequestUrl $Request.RawUrl
@@ -192,18 +216,8 @@ Function AutomationHookListener {
             }
         }
 
-        # Convert the data to UTF8 bytes
-        [byte[]]$Buffer = [System.Text.Encoding]::UTF8.GetBytes($Message)
-
-        $Response.ContentType = 'application/json';
-
-        # Set length of response
-        $Response.ContentLength64 = $Buffer.length
-
-        # Write response out and close
-        $Output = $Response.OutputStream
-        $Output.Write($Buffer, 0, $Buffer.length)
-        $Output.Close()
+        SendResponse    -Response $Response `
+                        -Message $Message
     }
 
     #Terminate the listener
