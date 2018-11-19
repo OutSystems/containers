@@ -47,7 +47,7 @@ Function ContainerBuild {
         [Parameter(Mandatory=$true)][String]$TargetPath,
         [Parameter(Mandatory=$true)][String]$ResultPath,
         [Parameter(Mandatory=$true)][String]$ConfigPath,
-        [Parameter(Mandatory=$true)]$AdditionalParameters
+        [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 
     ExecOperation   -OperationName "ContainerBuild" `
@@ -71,7 +71,7 @@ Function ContainerRun {
         [Parameter(Mandatory=$true)][String]$TargetPath,
         [Parameter(Mandatory=$true)][String]$ResultPath, 
         [Parameter(Mandatory=$true)][String]$ConfigPath,
-        [Parameter(Mandatory=$true)]$AdditionalParameters
+        [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 
     ExecOperation   -OperationName "ContainerRun" `
@@ -95,7 +95,7 @@ Function ContainerRemove {
         [Parameter(Mandatory=$true)][String]$TargetPath,
         [Parameter(Mandatory=$true)][String]$ResultPath, 
         [Parameter(Mandatory=$true)][String]$ConfigPath,
-        [Parameter(Mandatory=$true)]$AdditionalParameters
+        [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 
     ExecOperation   -OperationName "ContainerRemove" `
@@ -119,7 +119,7 @@ Function UpdateConfigurations {
         [Parameter(Mandatory=$true)][String]$TargetPath,
         [Parameter(Mandatory=$true)][String]$ResultPath, 
         [Parameter(Mandatory=$true)][String]$ConfigPath,
-        [Parameter(Mandatory=$true)]$AdditionalParameters
+        [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 
     ExecOperation   -OperationName "UpdateConfigurations" `
