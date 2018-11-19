@@ -50,14 +50,18 @@ Function RemoveLastInstance {
     return $(SubstituteLastInstance -Of $Of -In $In -For "")
 }
 
-Function GetSubFolders([String]$path) {
+Function GetSubFolders {
+    Param (
+        [Parameter(Mandatory=$true)][String]$Path
+    )
+
     $SubFolders = @()
 
-    foreach ($entry in (Get-ChildItem $path -Directory)) {
-        $SubFolders += $entry.Name
+    foreach ($Entry in (Get-ChildItem $Path -Directory)) {
+        $SubFolders += $Entry.Name
     }
 
-    return [Object[]]$SubFolders
+    return [String[]]$SubFolders
 }
 
 Function FastCompareContentsOfZipWithFolder([String]$zipPath, [String]$folderPath, [String]$basePath = $zipPath, $app = $(New-Object -COM 'Shell.Application'), [bool]$Result = $true) {
