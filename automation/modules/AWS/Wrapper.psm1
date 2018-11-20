@@ -205,7 +205,8 @@ Function Wrapper_ContainerBuild {
         [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 
-    $AppInfo = $(GetAppInfo -ApplicationKey $ApplicationKey `
+    $AppInfo = $(GetAppInfo -ApplicationName $ApplicationName `
+                            -ApplicationKey $ApplicationKey `
                             -OperationId $OperationId `
                             -TargetPath $TargetPath `
                             -UnzippedBundlesPath $UnzippedBundlesPath)
@@ -248,7 +249,8 @@ Function Wrapper_ContainerRun {
     $Result = NewWrapperResult
 
     try {
-        $AppInfo = $(GetAppInfo -ApplicationKey $ApplicationKey `
+        $AppInfo = $(GetAppInfo -ApplicationName $ApplicationName `
+                                -ApplicationKey $ApplicationKey `
                                 -OperationId $OperationId `
                                 -TargetPath $TargetPath `
                                 -UnzippedBundlesPath $UnzippedBundlesPath)
@@ -259,7 +261,9 @@ Function Wrapper_ContainerRun {
                         -Key "$($global:ConfigsFolderName)/$ApplicationKey/$($global:UnifiedConfigFile)" `
                         -File "$ConfigPath\$ApplicationKey\$($global:UnifiedConfigFile)"
 
-        [Object[]]$ModuleNames = $(GetSubFolders $(Join-Path -Path $AppInfo.UnzippedBundlePath -ChildPath $global:ModulesFolderName))
+        $ModulesPath = $(Join-Path -Path $AppInfo.UnzippedBundlePath -ChildPath $global:ModulesFolderName)
+
+        [String[]]$ModuleNames = $(GetSubFolders -Path $ModulesPath)
 
         $TargetGroupArn = $(GetOrCreateTargetGroup -ModuleName $ModuleNames[0])
 

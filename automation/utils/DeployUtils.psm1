@@ -77,6 +77,7 @@ Function GetAppFullName {
 
 Function GetAppInfo {
     Param (
+        [Parameter(Mandatory=$true)][String]$ApplicationName,
         [Parameter(Mandatory=$true)][String]$ApplicationKey,
         [Parameter(Mandatory=$true)][String]$OperationId, 
         [Parameter(Mandatory=$true)][String]$TargetPath,
@@ -85,6 +86,7 @@ Function GetAppInfo {
 
     $AppInfo = @{}
 
+    $AppInfo.ApplicationName = $ApplicationName
     $AppInfo.ApplicationKey = $ApplicationKey
     $AppInfo.OperationId = $OperationId
     $AppInfo.FullName = $(GetAppFullName -ApplicationKey $ApplicationKey -OperationId $OperationId)
@@ -94,7 +96,7 @@ Function GetAppInfo {
     $ModulesPath = $(Join-Path -Path $AppInfo.UnzippedBundlePath -ChildPath $global:ModulesFolderName)
 
     if (Test-Path $ModulesPath) {
-        $AppInfo.ModuleNames = $(GetSubFolders $ModulesPath)
+        $AppInfo.ModuleNames = $(GetSubFolders -Path $ModulesPath)
     } else {
         WriteLog -Level "DEBUG" -Message "The modules folder for app '$($AppInfo.FullName)' doesn't exist yet."
     }

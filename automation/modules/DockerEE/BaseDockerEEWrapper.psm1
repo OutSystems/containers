@@ -4,6 +4,58 @@ Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "../../utils/Logger.
 Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "../../utils/DockerUtils.psm1") -Force
 Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "../../utils/IISUtils.psm1") -Force
 
+# When extending this module, implement in your module's Wrapper.psm1 the following commented 
+# functions:
+#       GetExtraContainerRunParameters
+#       StartContainerAndCreateRewriteRulesOnContainerRun
+#       RemoveRewriteRulesOnContainerRemove
+#  Make sure that signatures match!
+
+# This function allows the definition of any parameters that need to be passed to docker run.
+# You do not need to implement any special logic, but you will need to have the function header 
+# in your Wrapper.psm1
+# Note that, by default, '-dit' are already being used.
+<#
+Function GetExtraContainerRunParameters {
+    # for instance, lets say we want to publish all ports to any available host ports...
+    return @("-P")
+}
+#>
+
+# This function should handle creating rewrite rules.
+# This is called during the ContainerRun stage, after stopping previous versions of the application
+# running in containers, obtaining the Image ID of the current one and starting a container with any 
+# Extra Parameters as defined in GetExtraContainerRunParameters.
+<#
+Function StartContainerAndCreateRewriteRulesOnContainerRun {
+    Param (
+        [Parameter(Mandatory=$true)][Object]$ContainerInfo,
+        [Parameter(Mandatory=$true)][Hashtable]$DeployInfo,
+        [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
+    )
+    
+    # do stuff
+}
+#>
+
+
+# This function should handle removing rewrite rules.
+# It's called after all the images and containers that match the labels of the current operation
+# are deleted.
+<#
+Function RemoveRewriteRulesOnContainerRemove {
+    Param (
+        [Parameter(Mandatory=$true)][Hashtable]$DeployInfo,
+        [Parameter(Mandatory=$true)][String[]]$ModuleNames
+    )
+}
+#>
+
+
+
+
+# From here on, be careful with what you modify!
+
 Function TryToConvertHostPathUsedForVolumeFromNetworkShare {
     Param (
         [Parameter(Mandatory=$true)][String]$Path
@@ -54,25 +106,6 @@ Function TryToConvertHostPathUsedForVolumeFromNetworkShare {
     return $InferredPath
 }
 
-Function GetIISInfo {
-    Param (
-        [Parameter(Mandatory=$true)][AllowEmptyString()][String]$SiteName
-    )
-
-    $IISInfo = @{}    
-
-    if (-not $SiteName) {
-        # no site given
-        $IISInfo.IsDefaultWebSite = $True
-        $IISInfo.SiteName = "Default Web Site"
-    } else {
-        $IISInfo.IsDefaultWebSite = $False
-        $IISInfo.SiteName = $SiteName
-    }
-
-    return $IISInfo
-}
-
 Function GetFilePaths {
     Param (
         [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters,
@@ -85,8 +118,6 @@ Function GetFilePaths {
     $BaseConfigPath = TryToConvertHostPathUsedForVolumeFromNetworkShare -Path $BaseConfigPath
     
     $FilePaths = @{}
-
-    $SiteName = $SiteName -replace " ", ""
 
     $FilePaths.UnzippedBundlesPath = $(Join-Path -Path "$ArtefactsBasePath" -ChildPath "$SiteName/$($global:UnzippedBundlesFolderName)")
     $FilePaths.SiteFolderPath = $(Join-Path -Path "$ArtefactsBasePath" -ChildPath "$SiteName/site")
@@ -145,21 +176,29 @@ Function GetAppVolumeFolders {
 Function GetDeployInfo {
     Param (
         [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters,
+        [Parameter(Mandatory=$true)][String]$ApplicationName,
         [Parameter(Mandatory=$true)][String]$ApplicationKey,
         [Parameter(Mandatory=$true)][String]$OperationId,
         [Parameter(Mandatory=$true)][String]$TargetPath,
         [Parameter(Mandatory=$true)][String]$BaseConfigPath
     )
 
-    $IISInfo = $(GetIISInfo -SiteName $AdditionalParameters.SiteName)
+    $DeployInfo = @{}
+
+    $DeployInfo.SiteName = $AdditionalParameters.SiteName -replace " ", ""
+
+    if (-not $DeployInfo.SiteName) {
+        $DeployInfo.SiteName = "default"
+    }
 
     $FilePaths = $(GetFilePaths -AdditionalParameters $AdditionalParameters `
-                                -SiteName $IISInfo.SiteName `
+                                -SiteName $DeployInfo.SiteName `
                                 -ApplicationKey $ApplicationKey `
                                 -ArtefactsBasePath $global:ArtefactsBasePath `
                                 -BaseConfigPath $BaseConfigPath)
 
-    $AppInfo = $(GetAppInfo -ApplicationKey $ApplicationKey `
+    $AppInfo = $(GetAppInfo -ApplicationName $ApplicationName `
+                            -ApplicationKey $ApplicationKey `
                             -OperationId $OperationId `
                             -TargetPath $TargetPath `
                             -UnzippedBundlesPath $FilePaths.UnzippedBundlesPath)
@@ -169,8 +208,7 @@ Function GetDeployInfo {
                                                 -SecretsFolderInHost $FilePaths.SecretPath `
                                                 -SecretsFolderInContainer $global:SecretsFolderInContainer)
 
-    $DeployInfo = @{}
-    $DeployInfo.IISInfo = $IISInfo
+    
     $DeployInfo.FilePaths = $FilePaths
     $DeployInfo.AppInfo = $AppInfo
     $DeployInfo.AppVolumeFolders = $AppVolumeFolders
@@ -242,51 +280,6 @@ Function CleanUpContainerArtefacts {
     }
 }
 
-Function Wrapper_ContainerBuild {
-    Param (
-        [Parameter(Mandatory=$true)][String]$Address,
-        [Parameter(Mandatory=$true)][String]$ApplicationName,
-        [Parameter(Mandatory=$true)][String]$ApplicationKey,
-        [Parameter(Mandatory=$true)][String]$OperationId,
-        [Parameter(Mandatory=$true)][String]$TargetPath,
-        [Parameter(Mandatory=$true)][String]$ResultPath, 
-        [Parameter(Mandatory=$true)][String]$ConfigPath,
-        [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
-    )
-
-    $DeployInfo = $(GetDeployInfo   -AdditionalParameters $AdditionalParameters `
-                                    -ApplicationKey $ApplicationKey `
-                                    -OperationId $OperationId `
-                                    -TargetPath $TargetPath `
-                                    -BaseConfigPath $ConfigPath) 
-
-    if (-not (Test-Path $DeployInfo.AppInfo.BundleFilePath)) {
-        throw "No bundle found with path '$($DeployInfo.AppInfo.BundleFilePath)'. Aborting."
-    }
-
-    if (-not $(CheckIfZipIsLikelyADockerBundle -DockerBundleFile $DeployInfo.AppInfo.BundleFilePath)) {
-        throw "No Dockerfile found in root of '$($DeployInfo.AppInfo.BundleFilePath)'. Aborting."
-    }
-
-    $Labels = $(GetLabels   -ApplicationKey $ApplicationKey `
-                            -OperationId $OperationId `
-                            -SiteName $DeployInfo.IISInfo.SiteName)
-
-    $ContainerIds = $(GetRunningDockerContainersWithLabels -Labels $Labels)
-
-    if (($AdditionalParameters.Force) -or (-not $ContainerIds)) {
-        $(UnzipContainerBundle  -BundleFilePath $DeployInfo.AppInfo.BundleFilePath `
-                                -UnzipFolder $DeployInfo.AppInfo.UnzippedBundlePath)
-
-        $(BuildDockerImageWithRetries   -RepositoryName $DeployInfo.AppInfo.FullName `
-                                        -RepositoryTag "latest" `
-                                        -Labels $Labels `
-                                        -DockerfilePath $DeployInfo.AppInfo.UnzippedBundlePath) | Out-Null
-    } else {
-        WriteLog "A container is already running for '$($DeployInfo.AppInfo.FullName)'. Doing nothing."
-    }
-}
-
 Function RunJustBeforeDeployDone {
     Param (
         [Parameter(Mandatory=$true)][String]$ScriptsPath,
@@ -316,6 +309,52 @@ Function RunJustBeforeDeployDone {
     }
 }
 
+Function Wrapper_ContainerBuild {
+    Param (
+        [Parameter(Mandatory=$true)][String]$Address,
+        [Parameter(Mandatory=$true)][String]$ApplicationName,
+        [Parameter(Mandatory=$true)][String]$ApplicationKey,
+        [Parameter(Mandatory=$true)][String]$OperationId,
+        [Parameter(Mandatory=$true)][String]$TargetPath,
+        [Parameter(Mandatory=$true)][String]$ResultPath, 
+        [Parameter(Mandatory=$true)][String]$ConfigPath,
+        [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
+    )
+
+    $DeployInfo = $(GetDeployInfo   -AdditionalParameters $AdditionalParameters `
+                                    -ApplicationName $ApplicationName `
+                                    -ApplicationKey $ApplicationKey `
+                                    -OperationId $OperationId `
+                                    -TargetPath $TargetPath `
+                                    -BaseConfigPath $ConfigPath) 
+
+    if (-not (Test-Path $DeployInfo.AppInfo.BundleFilePath)) {
+        throw "No bundle found with path '$($DeployInfo.AppInfo.BundleFilePath)'. Aborting."
+    }
+
+    if (-not $(CheckIfZipIsLikelyADockerBundle -DockerBundleFile $DeployInfo.AppInfo.BundleFilePath)) {
+        throw "No Dockerfile found in root of '$($DeployInfo.AppInfo.BundleFilePath)'. Aborting."
+    }
+
+    $Labels = $(GetLabels   -ApplicationKey $ApplicationKey `
+                            -OperationId $OperationId `
+                            -SiteName $DeployInfo.SiteName)
+
+    $ContainerIds = $(GetRunningDockerContainersWithLabels -Labels $Labels)
+
+    if (($AdditionalParameters.Force) -or (-not $ContainerIds)) {
+        $(UnzipContainerBundle  -BundleFilePath $DeployInfo.AppInfo.BundleFilePath `
+                                -UnzipFolder $DeployInfo.AppInfo.UnzippedBundlePath)
+
+        $(BuildDockerImageWithRetries   -RepositoryName $DeployInfo.AppInfo.FullName `
+                                        -RepositoryTag "latest" `
+                                        -Labels $Labels `
+                                        -DockerfilePath $DeployInfo.AppInfo.UnzippedBundlePath) | Out-Null
+    } else {
+        WriteLog "A container is already running for '$($DeployInfo.AppInfo.FullName)'. Doing nothing."
+    }
+}
+
 Function Wrapper_ContainerRun {
     Param (
         [Parameter(Mandatory=$true)][String]$Address,
@@ -329,13 +368,14 @@ Function Wrapper_ContainerRun {
     )
 
     $DeployInfo = $(GetDeployInfo   -AdditionalParameters $AdditionalParameters `
+                                    -ApplicationName $ApplicationName `
                                     -ApplicationKey $ApplicationKey `
                                     -OperationId $OperationId `
                                     -TargetPath $TargetPath `
                                     -BaseConfigPath $ConfigPath)
 
-    $LabelsForThisAppVersion = $(GetLabels -ApplicationKey $ApplicationKey -OperationId $OperationId -SiteName $DeployInfo.IISInfo.SiteName)
-    $LabelsForAllAppVersions = $(GetLabels -ApplicationKey $ApplicationKey -SiteName $DeployInfo.IISInfo.SiteName)
+    $LabelsForThisAppVersion = $(GetLabels -ApplicationKey $ApplicationKey -OperationId $OperationId -SiteName $DeployInfo.SiteName)
+    $LabelsForAllAppVersions = $(GetLabels -ApplicationKey $ApplicationKey -SiteName $DeployInfo.SiteName)
 
     $(ForceRemoveAllDockerContainersWithLabels -Labels $LabelsForAllAppVersions) | Out-Null
 
@@ -350,52 +390,25 @@ Function Wrapper_ContainerRun {
         throw "Check if the ContainerBuild operation ran successfully. No image was found for the labels."
     }
 
+    $ExtraRunParameters = $(GetExtraContainerRunParameters)
+
     [String]$ContainerId = $(RunDockerContainerWithRetries  -ImageId $ImageId `
                                                             -Labels $LabelsForThisAppVersion `
-                                                            -VolumeMappings $DeployInfo.AppVolumeFolders.Mappings)
-
-    if (-not $IISWebSiteInfo.IsDefaultWebSite) {
-        CreateSiteForWildcard   -SiteFolderPath $DeployInfo.FilePaths.SiteFolderPath `
-                                -SiteName $DeployInfo.IISInfo.SiteName
-    } else {
-        WriteLog -Level "DEBUG" -Message "Using '$($DeployInfo.IISInfo.SiteName)' for rewrite rules. No specific website was created."
-    }
+                                                            -VolumeMappings $DeployInfo.AppVolumeFolders.Mappings`
+                                                            -ExtraRunParameters $ExtraRunParameters)
 
     $ContainerInfo = $(GetDockerContainerInfoWithRetries -ContainerId $ContainerId)
 
-    # $ContainerInfo.Config.Hostname is not working on Windows Server Core, using IPAddress
-    $ContainerHostname = $ContainerInfo.NetworkSettings.Networks.nat.IPAddress
-
-    $(AddReroutingRules -SiteName $DeployInfo.IISInfo.SiteName `
-                        -TargetHostName $ContainerHostname `
-                        -Paths $DeployInfo.AppInfo.ModuleNames)
-
-    $CreatedDefaultRewriteRule = $false
-
-    if ($AdditionalParameters.PlatformServerFQMN) {
-        $ResolveDnsInfo = $(Resolve-DnsName $AdditionalParameters.PlatformServerFQMN) 2>$null
-
-        if ($ResolveDnsInfo) {
-            AddDefaultRewriteRule   -SiteName $DeployInfo.IISInfo.SiteName `
-                                    -TargetHostName $AdditionalParameters.PlatformServerFQMN
-
-            $CreatedDefaultRewriteRule = $true
-        } else {
-            $ErrorMessage = "Could not resolve '$($AdditionalParameters.PlatformServerFQMN)'!"
-        }
-    } else {
-        $ErrorMessage = "PlatformServerFQMN is empty!"
+    $(StartContainerAndCreateRewriteRulesOnContainerRun -ContainerInfo $ContainerInfo `
+                                                        -DeployInfo $DeployInfo `
+                                                        -AdditionalParameters $AdditionalParameters)
+    if ($ContainerInfo) {
+        $(RunJustBeforeDeployDone   -ScriptsPath $DeployInfo.FilePaths.SiteFolderPath `
+                                    -ApplicationKey $ApplicationKey `
+                                    -OperationId $OperationId `
+                                    -SiteName $DeployInfo.SiteName `
+                                    -ContainerInfo $ContainerInfo)
     }
-
-    if (-not $CreatedDefaultRewriteRule) {
-        WriteLog -Level "WARN" -Message "$ErrorMessage No URL Rewrite Inbound Rule to add rerouting back to target host name was created! Any references your app has to modules living in Classical VMs will be broken!"
-    }
-
-    $(RunJustBeforeDeployDone   -ScriptsPath $DeployInfo.FilePaths.SiteFolderPath `
-                                -ApplicationKey $ApplicationKey `
-                                -OperationId $OperationId `
-                                -SiteName $DeployInfo.IISInfo.SiteName `
-                                -ContainerInfo $ContainerInfo)
 
     $(CleanUpContainerArtefacts -TargetPath $TargetPath `
                                 -UnzippedBundlePath $DeployInfo.FilePaths.UnzippedBundlesPath `
@@ -416,12 +429,13 @@ Function Wrapper_ContainerRemove {
     )
 
     $DeployInfo = $(GetDeployInfo   -AdditionalParameters $AdditionalParameters `
+                                    -ApplicationName $ApplicationName `
                                     -ApplicationKey $ApplicationKey `
                                     -OperationId $OperationId `
                                     -TargetPath $TargetPath `
                                     -BaseConfigPath $ConfigPath)
 
-    $LabelsForAllAppVersions = $(GetLabels -ApplicationKey $ApplicationKey -SiteName $DeployInfo.IISInfo.SiteName)
+    $LabelsForAllAppVersions = $(GetLabels -ApplicationKey $ApplicationKey -SiteName $DeployInfo.SiteName)
 
     if (-not $AdditionalParameters.KeepDockerContainers) {
         $(ForceRemoveAllDockerContainersWithLabels -Labels $LabelsForAllAppVersions) | Out-Null
@@ -435,13 +449,12 @@ Function Wrapper_ContainerRemove {
 
     WriteLog "Trying to remove Rewrite Rules for '$AppFullName'..."
 
-    $ModuleNames = $DeployInfo.AppInfo.ModuleNames
+    [String[]]$ModuleNames = $DeployInfo.AppInfo.ModuleNames
 
     if ($ModuleNames) {
-        $(RemoveReroutingRules  -SiteName $DeployInfo.IISInfo.SiteName `
-                                -Paths $ModuleNames)
+        $(RemoveRewriteRulesOnContainerRemove   -DeployInfo $DeployInfo `
+                                                -ModuleNames $ModuleNames)
 
-        WriteLog "Rewrite Rules for '$AppFullName' were removed."
     } else {
         WriteLog "Could not figure out which modules '$AppFullName' has. No Rewrite Rules were removed."
     }
