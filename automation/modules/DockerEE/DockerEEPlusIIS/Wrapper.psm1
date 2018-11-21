@@ -1,6 +1,6 @@
 $ExecutionPath = $ExecutionContext.SessionState.Module.ModuleBase
 
-Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "../BaseDockerEEWrapper.psm1")
+Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "../BaseDockerEEWrapper.psm1") -Force
 
 
 Function GetExtraContainerRunParameters {}
