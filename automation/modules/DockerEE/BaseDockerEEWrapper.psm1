@@ -7,7 +7,7 @@ Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "../../utils/IISUtil
 # When extending this module, implement in your module's Wrapper.psm1 the following commented 
 # functions:
 #       GetExtraContainerRunParameters
-#       StartContainerAndCreateRewriteRulesOnContainerRun
+#       CreateRewriteRulesOnContainerRun
 #       RemoveRewriteRulesOnContainerRemove
 #  Make sure that signatures match!
 
@@ -27,7 +27,7 @@ Function GetExtraContainerRunParameters {
 # running in containers, obtaining the Image ID of the current one and starting a container with any 
 # Extra Parameters as defined in GetExtraContainerRunParameters.
 <#
-Function StartContainerAndCreateRewriteRulesOnContainerRun {
+Function CreateRewriteRulesOnContainerRun {
     Param (
         [Parameter(Mandatory=$true)][Object]$ContainerInfo,
         [Parameter(Mandatory=$true)][Hashtable]$DeployInfo,
@@ -399,7 +399,7 @@ Function Wrapper_ContainerRun {
 
     $ContainerInfo = $(GetDockerContainerInfoWithRetries -ContainerId $ContainerId)
 
-    $(StartContainerAndCreateRewriteRulesOnContainerRun -ContainerInfo $ContainerInfo `
+    $(CreateRewriteRulesOnContainerRun -ContainerInfo $ContainerInfo `
                                                         -DeployInfo $DeployInfo `
                                                         -AdditionalParameters $AdditionalParameters)
     if ($ContainerInfo) {

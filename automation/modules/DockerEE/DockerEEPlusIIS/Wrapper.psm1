@@ -5,7 +5,7 @@ Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "../BaseDockerEEWrap
 
 Function GetExtraContainerRunParameters {}
 
-Function StartContainerAndCreateRewriteRulesOnContainerRun {
+Function CreateRewriteRulesOnContainerRun {
     Param (
         [Parameter(Mandatory=$true)][Object]$ContainerInfo,
         [Parameter(Mandatory=$true)][Hashtable]$DeployInfo,
