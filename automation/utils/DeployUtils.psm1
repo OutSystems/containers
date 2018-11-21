@@ -41,7 +41,7 @@ Function UnzipContainerBundle {
 
             Expand-Archive -Path $BundleFilePath -DestinationPath $TempPath
 
-            Move-Item -Path $TempPath -Destination $UnzipFolder -Force
+            Copy-Item -Path $TempPath -Destination $UnzipFolder -Force
 
             if (Test-Path $TempPath) {
                 Remove-Item -Path $TempPath -Recurse -Force 2>$null
