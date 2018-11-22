@@ -37,11 +37,11 @@ Function UnzipContainerBundle {
             WriteLog -Level "DEBUG" -Message "'$FileName' unzipped bundle folder doesn't exist. Unzipping..."
 
             $FolderName = $(Split-Path $UnzipFolder -Leaf)
-            $TempPath = Join-Path -Path "C:\Windows\Temp" -ChildPath $FolderName
+            $TempPath = Join-Path -Path $($env:Temp) -ChildPath $FolderName
 
-            Expand-Archive -Path $BundleFilePath -DestinationPath $TempPath
+            Expand-Archive -Path $BundleFilePath -DestinationPath $TempPath -Force
 
-            Copy-Item -Path $TempPath -Destination $UnzipFolder -Force
+            Copy-Item -Path $TempPath -Destination $UnzipFolder -Force -Recurse
 
             if (Test-Path $TempPath) {
                 Remove-Item -Path $TempPath -Recurse -Force 2>$null
