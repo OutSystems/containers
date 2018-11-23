@@ -12,4 +12,4 @@ Contains the `.groovy` pipeline scripts referenced in the FAQ "How to automate d
 
 ## `listener`
 
-Contains the simple HTTP listener referenced in the FAQ "Deploying an App to Amazon Elastic Container Service (ECS) Step-by-Step".
+Contains the simple HTTP listener referenced in the FAQ "Deploy an App to Amazon Elastic Container Service (ECS) Step-by-Step".
