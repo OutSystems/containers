@@ -237,6 +237,10 @@ Function ExecOperation {
 
         throw $_
     } finally {
+        if ($AdditionalParameters.SkipPing) {
+            $Result.SkipPing = $true
+        }
+
         # The functions to create marker files are defined in DeployUtils.psm1
         $(&"Create$($MarkerFile)File"   -ResultPath $ResultPath `
                                         -ApplicationKey $ApplicationKey `
