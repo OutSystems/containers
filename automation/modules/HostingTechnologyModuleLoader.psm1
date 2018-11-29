@@ -192,7 +192,7 @@ Function ExecOperation {
         [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 
-    $Result = @{}
+    $Result = NewWrapperResult
 
     try {
         $Address = $(ConvertIfFromBase64 -Text $Address)
@@ -233,8 +233,6 @@ Function ExecOperation {
         }
 
     } catch {
-        # If we hit his, we won't have a valid Result, let's initialize it
-        $Result = NewWrapperResult
         $Result.Error = "Something went critically wrong: $_ : $($_.ScriptStackTrace)"
 
         throw $_
