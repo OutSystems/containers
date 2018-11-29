@@ -377,8 +377,6 @@ Function Wrapper_ContainerRun {
     $LabelsForThisAppVersion = $(GetLabels -ApplicationKey $ApplicationKey -OperationId $OperationId -SiteName $DeployInfo.SiteName)
     $LabelsForAllAppVersions = $(GetLabels -ApplicationKey $ApplicationKey -SiteName $DeployInfo.SiteName)
 
-    $(ForceRemoveAllDockerContainersWithLabels -Labels $LabelsForAllAppVersions) | Out-Null
-
     # We need to force the 'cast' to String Array:
     # PowerShell will interpret a single item array as a string
     $ImageIds = [String[]]$(GetDockerImagesWithLabels -Labels $LabelsForThisAppVersion)
@@ -389,6 +387,8 @@ Function Wrapper_ContainerRun {
     if (-not $ImageId) {
         throw "Check if the ContainerBuild operation ran successfully. No image was found for the labels."
     }
+
+    $(ForceRemoveAllDockerContainersWithLabels -Labels $LabelsForAllAppVersions) | Out-Null
 
     $ExtraRunParameters = $(GetExtraContainerRunParameters)
 
