@@ -37,11 +37,14 @@ Function UnzipContainerBundle {
             WriteLog -Level "DEBUG" -Message "'$FileName' unzipped bundle folder doesn't exist. Unzipping..."
 
             $FolderName = $(Split-Path $UnzipFolder -Leaf)
-            $TempPath = Join-Path -Path $($env:Temp) -ChildPath $FolderName
+            $TempPath = Join-Path -Path $env:Temp -ChildPath $FolderName
 
             Expand-Archive -Path $BundleFilePath -DestinationPath $TempPath -Force
 
-            Copy-Item -Path $TempPath -Destination $UnzipFolder -Force -Recurse
+            # The \\?\ are needed to workaround filepath size limitations. for more information check:
+            # https://blogs.msdn.microsoft.com/bclteam/2007/02/13/long-paths-in-net-part-1-of-3-kim-hamilton/
+            # https://docs.microsoft.com/en-us/windows/desktop/FileIO/naming-a-file
+            Copy-Item -Path "\\?\$TempPath" -Destination "\\?\$UnzipFolder" -Force -Recurse
 
             if (Test-Path $TempPath) {
                 Remove-Item -Path $TempPath -Recurse -Force 2>$null
