@@ -193,32 +193,28 @@ Function GetRegion {
     return $region
 }
 
+
 Function Wrapper_ContainerBuild {
     Param (
-        [Parameter(Mandatory=$true)][String]$Address,
-        [Parameter(Mandatory=$true)][String]$ApplicationName,
-        [Parameter(Mandatory=$true)][String]$ApplicationKey,
-        [Parameter(Mandatory=$true)][String]$OperationId,
-        [Parameter(Mandatory=$true)][String]$TargetPath,
-        [Parameter(Mandatory=$true)][String]$ResultPath, 
-        [Parameter(Mandatory=$true)][String]$ConfigPath,
+        [Parameter(Mandatory=$true)][Hashtable]$PlatformParameters,
         [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 
-    $AppInfo = $(GetAppInfo -ApplicationName $ApplicationName `
-                            -ApplicationKey $ApplicationKey `
-                            -OperationId $OperationId `
-                            -TargetPath $TargetPath `
+    $AppInfo = $(GetAppInfo -ApplicationName $PlatformParameters.ApplicationName `
+                            -ApplicationKey $PlatformParameters.ApplicationKey `
+                            -OperationId $PlatformParameters.OperationId `
+                            -ModuleNames $PlatformParameters.ModuleNames `
+                            -TargetPath $PlatformParameters.TargetPath `
                             -UnzippedBundlesPath $UnzippedBundlesPath)
 
     $(UnzipContainerBundle  -BundleFilePath $AppInfo.BundleFilePath `
                             -UnzipFolder $AppInfo.UnzippedBundlePath)
 
-    $RepositoryName = $(GenerateRepositoryName -AppName $ApplicationName)
+    $RepositoryName = $(GenerateRepositoryName -AppName $PlatformParameters.ApplicationName)
 
     $ImageId = $(BuildDockerImageWithRetries    -RepositoryName $RepositoryName `
                                                 -RepositoryTag "latest" `
-                                                -Labels @{"ApplicationKey"=$ApplicationKey ; "OperationId"=$OperationId} `
+                                                -Labels @{"ApplicationKey"=$PlatformParameters.ApplicationKey ; "OperationId"=$PlatformParameters.OperationId} `
                                                 -DockerfilePath $AppInfo.UnzippedBundlePath `
                                                 -PreserveRepositoryName)
 
@@ -236,34 +232,27 @@ Function Wrapper_ContainerBuild {
 
 Function Wrapper_ContainerRun {
     Param (
-        [Parameter(Mandatory=$true)][String]$Address,
-        [Parameter(Mandatory=$true)][String]$ApplicationName,
-        [Parameter(Mandatory=$true)][String]$ApplicationKey,
-        [Parameter(Mandatory=$true)][String]$OperationId,
-        [Parameter(Mandatory=$true)][String]$TargetPath,
-        [Parameter(Mandatory=$true)][String]$ResultPath, 
-        [Parameter(Mandatory=$true)][String]$ConfigPath,
+        [Parameter(Mandatory=$true)][Hashtable]$PlatformParameters,
         [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 
     $Result = NewWrapperResult
 
     try {
-        $AppInfo = $(GetAppInfo -ApplicationName $ApplicationName `
-                                -ApplicationKey $ApplicationKey `
-                                -OperationId $OperationId `
-                                -TargetPath $TargetPath `
+        $AppInfo = $(GetAppInfo -ApplicationName $PlatformParameters.ApplicationName `
+                                -ApplicationKey $PlatformParameters.ApplicationKey `
+                                -OperationId $PlatformParameters.OperationId `
+                                -ModuleNames $PlatformParameters.ModuleNames `
+                                -TargetPath $PlatformParameters.TargetPath `
                                 -UnzippedBundlesPath $UnzippedBundlesPath)
 
         $BucketName = $global:AWSBucketName
 
         Write-S3Object  -BucketName $BucketName `
-                        -Key "$($global:ConfigsFolderName)/$ApplicationKey/$($global:UnifiedConfigFile)" `
-                        -File "$ConfigPath\$ApplicationKey\$($global:UnifiedConfigFile)"
+                        -Key "$($global:ConfigsFolderName)/$($PlatformParameters.ApplicationKey)/$($global:UnifiedConfigFile)" `
+                        -File "$($PlatformParameters.ConfigPath)\$($PlatformParameters.ApplicationKey)\$($global:UnifiedConfigFile)"
 
-        $ModulesPath = $(Join-Path -Path $AppInfo.UnzippedBundlePath -ChildPath $global:ModulesFolderName)
-
-        [String[]]$ModuleNames = $(GetSubFolders -Path $ModulesPath)
+        [String[]]$ModuleNames = $AppInfo.ModuleNames
 
         $TargetGroupArn = $(GetOrCreateTargetGroup -ModuleName $ModuleNames[0])
 
@@ -273,11 +262,11 @@ Function Wrapper_ContainerRun {
             CreateRule -ModuleName $ModuleName -ListenerARN $ListenerARN -TargetGroupArn $TargetGroupArn 
         }
 
-        $RemoteRegistry = $(GetRepositoryUri -RepositoryName $(GenerateRepositoryName -AppName $ApplicationName))
+        $RemoteRegistry = $(GetRepositoryUri -RepositoryName $(GenerateRepositoryName -AppName $PlatformParameters.ApplicationName))
 
-        RegisterTaskDefinition -ApplicationKey $ApplicationKey -RemoteRegistry $RemoteRegistry
+        RegisterTaskDefinition -ApplicationKey $PlatformParameters.ApplicationKey -RemoteRegistry $RemoteRegistry
 
-        CreateOrUpdateService -ApplicationKey $ApplicationKey -TargetGroupArn $TargetGroupArn
+        CreateOrUpdateService -ApplicationKey $PlatformParameters.ApplicationKey -TargetGroupArn $TargetGroupArn
     } catch {
         $Result.Error = $_
     }
@@ -294,13 +283,7 @@ Function Wrapper_ContainerRun {
 
 Function Wrapper_ContainerRemove {
     Param (
-        [Parameter(Mandatory=$true)][String]$Address,
-        [Parameter(Mandatory=$true)][String]$ApplicationName,
-        [Parameter(Mandatory=$true)][String]$ApplicationKey,
-        [Parameter(Mandatory=$true)][String]$OperationId,
-        [Parameter(Mandatory=$true)][String]$TargetPath,
-        [Parameter(Mandatory=$true)][String]$ResultPath, 
-        [Parameter(Mandatory=$true)][String]$ConfigPath,
+        [Parameter(Mandatory=$true)][Hashtable]$PlatformParameters,
         [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 
@@ -309,19 +292,13 @@ Function Wrapper_ContainerRemove {
 
 Function Wrapper_UpdateConfigurations {
     Param (
-        [Parameter(Mandatory=$true)][String]$Address,
-        [Parameter(Mandatory=$true)][String]$ApplicationName,
-        [Parameter(Mandatory=$true)][String]$ApplicationKey,
-        [Parameter(Mandatory=$true)][String]$OperationId,
-        [Parameter(Mandatory=$true)][String]$TargetPath,
-        [Parameter(Mandatory=$true)][String]$ResultPath, 
-        [Parameter(Mandatory=$true)][String]$ConfigPath,
+        [Parameter(Mandatory=$true)][Hashtable]$PlatformParameters,
         [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 
     $BucketName = $global:AWSBucketName
 
     Write-S3Object  -BucketName $BucketName `
-                    -Key "$($global:ConfigsFolderName)/$ApplicationKey/$($global:UnifiedConfigFile)" `
-                    -File "$ConfigPath\$ApplicationKey\$($global:UnifiedConfigFile)"
+                    -Key "$($global:ConfigsFolderName)/$($PlatformParameters.ApplicationKey)/$($global:UnifiedConfigFile)" `
+                    -File "$($PlatformParameters.ConfigPath)\$($PlatformParameters.ApplicationKey)\$($global:UnifiedConfigFile)"
 }

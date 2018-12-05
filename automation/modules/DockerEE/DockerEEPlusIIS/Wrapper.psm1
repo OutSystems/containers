@@ -8,27 +8,21 @@ Function GetExtraContainerRunParameters {}
 Function CreateRewriteRulesOnContainerRun {
     Param (
         [Parameter(Mandatory=$true)][Object]$ContainerInfo,
-        [Parameter(Mandatory=$true)][Hashtable]$DeployInfo,
+        [Parameter(Mandatory=$true)][Hashtable]$OpInfo,
         [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 
-    $SiteName = $(DetermineSiteName -SiteName $DeployInfo.SiteName)
+    $SiteName = $(DetermineSiteName -SiteName $OpInfo.SiteName)
 
     $(CreateSiteForWildcard -SiteName $SiteName `
-                            -SiteFolderPath $DeployInfo.FilePaths.SiteFolderPath)
+                            -SiteFolderPath $OpInfo.FilePaths.SiteFolderPath)
 
     # $ContainerInfo.Config.Hostname is not working on Windows Server Core, using IPAddress
     $ContainerHostname = $ContainerInfo.NetworkSettings.Networks.nat.IPAddress
 
-    $ModuleNames = $DeployInfo.AppInfo.ModuleNames
-
-    if ($ModuleNames) {
-        $(AddReroutingRules -SiteName $SiteName `
-                            -TargetHostName $ContainerHostname `
-                            -Paths $ModuleNames)
-    } else {
-        WriteLog -Level "WARN" -Message "No modules found. No rewrites rules added."
-    }
+    $(AddReroutingRules -SiteName $SiteName `
+                        -TargetHostName $ContainerHostname `
+                        -Paths $OpInfo.AppInfo.ModuleNames)
 
     $CreatedDefaultRewriteRule = $false
 
@@ -54,16 +48,15 @@ Function CreateRewriteRulesOnContainerRun {
 
 Function RemoveRewriteRulesOnContainerRemove {
     Param (
-        [Parameter(Mandatory=$true)][Hashtable]$DeployInfo,
-        [Parameter(Mandatory=$true)][String[]]$ModuleNames
+        [Parameter(Mandatory=$true)][Hashtable]$OpInfo
     )
 
-    $SiteName = $(DetermineSiteName -SiteName $DeployInfo.SiteName)
+    $SiteName = $(DetermineSiteName -SiteName $OpInfo.SiteName)
 
     $(RemoveReroutingRules  -SiteName $(DetermineSiteName $SiteName) `
-                            -Paths $ModuleNames)
+                            -Paths $OpInfo.AppInfo.ModuleNames)
     
-    WriteLog "Rewrite Rules for '$($DeployInfo.AppInfo.ApplicationName)' were removed."
+    WriteLog "Rewrite Rules for '$($OpInfo.AppInfo.ApplicationName)' were removed."
 }
 
 Function DetermineSiteName {

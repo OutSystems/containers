@@ -2,13 +2,7 @@ $ExecutionPath = $ExecutionContext.SessionState.Module.ModuleBase
 
 Function Wrapper_ContainerBuild {
     Param (
-        [Parameter(Mandatory=$true)][String]$Address,
-        [Parameter(Mandatory=$true)][String]$ApplicationName,
-        [Parameter(Mandatory=$true)][String]$ApplicationKey,
-        [Parameter(Mandatory=$true)][String]$OperationId,
-        [Parameter(Mandatory=$true)][String]$TargetPath,
-        [Parameter(Mandatory=$true)][String]$ResultPath, 
-        [Parameter(Mandatory=$true)][String]$ConfigPath,
+        [Parameter(Mandatory=$true)][Hashtable]$PlatformParameters,
         [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 
@@ -25,13 +19,7 @@ Function Wrapper_ContainerBuild {
 
 Function Wrapper_ContainerRun {
     Param (
-        [Parameter(Mandatory=$true)][String]$Address,
-        [Parameter(Mandatory=$true)][String]$ApplicationName,
-        [Parameter(Mandatory=$true)][String]$ApplicationKey,
-        [Parameter(Mandatory=$true)][String]$OperationId,
-        [Parameter(Mandatory=$true)][String]$TargetPath,
-        [Parameter(Mandatory=$true)][String]$ResultPath, 
-        [Parameter(Mandatory=$true)][String]$ConfigPath,
+        [Parameter(Mandatory=$true)][Hashtable]$PlatformParameters,
         [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 
@@ -49,13 +37,7 @@ Function Wrapper_ContainerRun {
 
 Function Wrapper_ContainerRemove {
     Param (
-        [Parameter(Mandatory=$true)][String]$Address,
-        [Parameter(Mandatory=$true)][String]$ApplicationName,
-        [Parameter(Mandatory=$true)][String]$ApplicationKey,
-        [Parameter(Mandatory=$true)][String]$OperationId,
-        [Parameter(Mandatory=$true)][String]$TargetPath,
-        [Parameter(Mandatory=$true)][String]$ResultPath, 
-        [Parameter(Mandatory=$true)][String]$ConfigPath,
+        [Parameter(Mandatory=$true)][Hashtable]$PlatformParameters,
         [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 
@@ -72,13 +54,7 @@ Function Wrapper_ContainerRemove {
 
 Function Wrapper_UpdateConfigurations {
     Param (
-        [Parameter(Mandatory=$true)][String]$Address,
-        [Parameter(Mandatory=$true)][String]$ApplicationName,
-        [Parameter(Mandatory=$true)][String]$ApplicationKey,
-        [Parameter(Mandatory=$true)][String]$OperationId,
-        [Parameter(Mandatory=$true)][String]$TargetPath,
-        [Parameter(Mandatory=$true)][String]$ResultPath, 
-        [Parameter(Mandatory=$true)][String]$ConfigPath,
+        [Parameter(Mandatory=$true)][Hashtable]$PlatformParameters,
         [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters
     )
 

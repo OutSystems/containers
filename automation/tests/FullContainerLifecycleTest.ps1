@@ -15,7 +15,7 @@ StartListener -TestPort $TestPort
  $HostingTechnology = "DockerEEPlusIIS"
 
 # Only working for DockerEEPlusIIS
-$CheckPing = $False
+$CheckPing = $True
 
 $SiteName = ""
 
@@ -42,6 +42,12 @@ try {
     foreach ($Operation in (GetOperationsInfo)) {
         $Start = Get-Date
         
+        $OperationId = $BundleInfo.OperationId
+
+        if ($Operation.Name -eq "ContainerRemove") {
+            $OperationId = [guid]::NewGuid()
+        }
+
         $(CallHook  -ContainerAutomationMachine $ContainerAutomationMachine `
                     -Port $TestPort `
                     -HostingTechnology $HostingTechnology `
@@ -50,7 +56,7 @@ try {
                     -PlatformServerFQMN "localhost" `
                     -ApplicationName $BundleInfo.ApplicationName `
                     -ApplicationKey $BundleInfo.ApplicationKey `
-                    -OperationId $BundleInfo.OperationId `
+                    -OperationId $OperationId `
                     -SiteName $SiteName `
                     -TargetPath $TargetPath `
                     -ResultPath $ResultPath `
@@ -58,7 +64,8 @@ try {
                     -SecretPath $SecretPath)
 
         $(WaitForFile   -ResultPath $ResultPath `
-                        -FileName $BundleInfo.FullName `
+                        -ApplicationKey $BundleInfo.ApplicationKey `
+                        -OperationId $OperationId `
                         -FileExt $Operation.FileExt)
 
         if ( $CheckPing -and ($Operation.Name -eq "ContainerRun") ) {

@@ -107,12 +107,13 @@ Function CheckPing {
 Function WaitForFile {
     Param (
         [Parameter(Mandatory=$true)][String]$ResultPath,
-        [Parameter(Mandatory=$true)][String]$FileName,
+        [Parameter(Mandatory=$true)][String]$ApplicationKey,
+        [Parameter(Mandatory=$true)][String]$OperationId,
         [Parameter(Mandatory=$true)][String]$FileExt,
         [Parameter(Mandatory=$false)][int]$TimeoutInSeconds=120
     )
     
-    $FileName = "$FileName.$FileExt"
+    $FileName = "$($ApplicationKey)_$($OperationId).$FileExt"
 
     $MarkerFilePath = Join-Path -Path $ResultPath -ChildPath $FileName
 

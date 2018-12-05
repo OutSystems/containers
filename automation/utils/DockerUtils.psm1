@@ -222,7 +222,7 @@ Function BuildDockerImageWithRetries {
 
             if (-not $PreserveRepositoryName) {
                 # Docker does not handle names with upper case characters or white spaces
-                $RepositoryName = ConvertToCanonicalName $RepositoryName
+                $RepositoryName = $(ConvertToCanonicalName -Text $RepositoryName)
             }
 
             return $(RetryWithReturnValue -Action {

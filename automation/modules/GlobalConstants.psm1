@@ -17,3 +17,18 @@ $global:PrepareDone = ".preparedone"
 $global:DeployDone = ".deploydone"
 $global:UndeployDone = ".undeploydone"
 $global:ConfigsDone = ".configsdone"
+
+$global:PlatformParameterKeys = @{ 
+    Address = "Address" ;  
+    ApplicationName = "ApplicationName" ;  
+    ApplicationKey = "ApplicationKey" ; 
+    OperationId = "OperationId" ;
+    TargetPath = "TargetPath" ;
+    ResultPath = "ResultPath" ;
+    ConfigPath = "ConfigPath" ;
+    ModuleNames = "ModuleNames" ;
+}
+
+$global:JsonPlatformParameters = @{
+    $global:PlatformParameterKeys.ModuleNames = "Array" ;
+}

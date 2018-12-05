@@ -1,3 +1,15 @@
+Function ConvertToCanonicalName {
+    Param (
+        [Parameter(Mandatory=$true)][String]$Text
+    )
+
+    $StringBuilder = New-Object System.Text.StringBuilder
+    [System.Security.Cryptography.HashAlgorithm]::Create("SHA1").ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Text)) | ForEach-Object {
+        [Void]$StringBuilder.Append($_.ToString("x2"))
+    }
+    return $StringBuilder.ToString().Substring(0, 8)
+}
+
 Function IsBase64String {
     Param (
         [Parameter()][String]$Text

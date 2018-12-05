@@ -2,6 +2,7 @@ $ExecutionPath = $ExecutionContext.SessionState.Module.ModuleBase
 
 Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "../../utils/Logger.psm1") -Force
 Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "../../utils/GeneralUtils.psm1") -Force
+Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "../../modules/GlobalConstants.psm1") -Force
 
 Function ParseRequestRawURL {
     Param (
@@ -26,9 +27,10 @@ Function ParseQueryString {
     $AllParameters = New-Object Collections.Specialized.NameValueCollection $QueryString
 
     $ParsedQueryString = @{}
+    $ParsedQueryString.PlatformParameters = @{}
 
-    foreach ($Key in @("Address", "ApplicationName", "ApplicationKey", "OperationId", "TargetPath", "ResultPath", "ConfigPath")) {
-        $ParsedQueryString[$Key] = $AllParameters[$Key]
+    foreach ($Key in $($global:PlatformParameterKeys).Keys) {
+        $ParsedQueryString.PlatformParameters[$Key] = $AllParameters[$Key]
 
         $AllParameters.Remove($Key)
     }
@@ -46,13 +48,7 @@ Function CreateAsyncJob {
     Param (
         [Parameter(Mandatory=$true)][String]$RequestGUID,
         [Parameter(Mandatory=$true)][String][ValidateSet("ContainerBuild", "ContainerRun", "ContainerRemove", "UpdateConfigurations")]$MethodName,
-        [Parameter(Mandatory=$true)][String]$Address,
-        [Parameter(Mandatory=$true)][String]$ApplicationName,
-        [Parameter(Mandatory=$true)][String]$ApplicationKey,
-        [Parameter(Mandatory=$true)][String]$OperationId,
-        [Parameter(Mandatory=$true)][String]$TargetPath,
-        [Parameter(Mandatory=$true)][String]$ResultPath, 
-        [Parameter(Mandatory=$true)][String]$ConfigPath,
+        [Parameter(Mandatory=$true)][Hashtable]$PlatformParameters,
         [Parameter(Mandatory=$true)][Hashtable]$AdditionalParameters,
         [Parameter(Mandatory=$true)][String]$ExecutionPath,
         [Parameter(Mandatory=$true)][String]$HostingTechnology
@@ -63,13 +59,7 @@ Function CreateAsyncJob {
         Param (
             [Parameter(Mandatory=$true)][String]$BlockRequestGUID,
             [Parameter(Mandatory=$true)][String]$BlockMethodName,
-            [Parameter(Mandatory=$true)][String]$BlockAddress,
-            [Parameter(Mandatory=$true)][String]$BlockApplicationName,
-            [Parameter(Mandatory=$true)][String]$BlockApplicationKey,
-            [Parameter(Mandatory=$true)][String]$BlockOperationId,
-            [Parameter(Mandatory=$true)][String]$BlockTargetPath,
-            [Parameter(Mandatory=$true)][String]$BlockResultPath, 
-            [Parameter(Mandatory=$true)][String]$BlockConfigPath,
+            [Parameter(Mandatory=$true)][Hashtable]$BlockPlatformParameters,
             [Parameter(Mandatory=$true)][Hashtable]$BlockAdditionalParameters,
             [Parameter(Mandatory=$true)][String]$BlockExecutionPath,
             [Parameter(Mandatory=$true)][String]$BlockHostingTechnology,
@@ -84,30 +74,27 @@ Function CreateAsyncJob {
 
         ConfigureLogger -LogFolder $LogPath -LogPrefix $LogPrefix
 
-        WriteLog -Level "INFO" -Message "[$BlockRequestGUID] > Logging [$BlockMethodName] operation to [ $($global:LogFilePath) ]." -LogFile $BlockLogFile
+        # $global:LogFilePath was defined in ConfigureLogger
+        $LocalPowerShellLogFile = $global:LogFilePath
+
+        WriteLog -Level "INFO" -Message "[$BlockRequestGUID] > Logging [$BlockMethodName] operation to [ $LocalPowerShellLogFile ]." -LogFile $BlockLogFile
 
         try {
             Import-Module $(Join-Path -Path $BlockExecutionPath -ChildPath "../../modules/HostingTechnologyModuleLoader.psm1") -Force -ArgumentList $BlockHostingTechnology
 
-            $(&"$BlockMethodName"   -Address $BlockAddress `
-                                    -ApplicationName $BlockApplicationName `
-                                    -ApplicationKey $BlockApplicationKey `
-                                    -OperationId $BlockOperationId `
-                                    -TargetPath $BlockTargetPath `
-                                    -ResultPath $BlockResultPath `
-                                    -ConfigPath $BlockConfigPath `
+            $(&"$BlockMethodName"   -PlatformParameters $BlockPlatformParameters `
                                     -AdditionalParameters $BlockAdditionalParameters)
 
             WriteLog -Level "INFO" -Message "[$BlockRequestGUID] > [$BlockMethodName] operation finished successfully." -LogFile $BlockLogFile
         } catch {
             WriteLog -Level "FATAL" -Message "[$BlockRequestGUID] > [$BlockMethodName] operation finished with errors: $_ : $($_.ScriptStackTrace)." -LogFile $BlockLogFile
-            WriteLog -Level "FATAL" -Message "[$BlockRequestGUID] > Check log [ $($global:LogFilePath) ] for more info." -LogFile $BlockLogFile
+            WriteLog -Level "FATAL" -Message "[$BlockRequestGUID] > Check log [ $LocalPowerShellLogFile ] for more info." -LogFile $BlockLogFile
         }
     }
 
     $JobInfo = Start-Job    -Init ([ScriptBlock]::Create("Set-Location '$pwd'")) `
                             -ScriptBlock $DynamicMethodExecution `
-                            -ArgumentList $RequestGUID, $MethodName, $Address, $ApplicationName, $ApplicationKey, $OperationId, $TargetPath, $ResultPath, $ConfigPath, $AdditionalParameters, $ExecutionPath, $HostingTechnology, $global:LogFilePath
+                            -ArgumentList $RequestGUID, $MethodName, $PlatformParameters, $AdditionalParameters, $ExecutionPath, $HostingTechnology, $global:LogFilePath
 
     WriteLog -Level "DEBUG" -Message "[$RequestGUID] > Started job with Id [$($JobInfo.Id)]."
 }
@@ -130,6 +117,25 @@ Function SendResponse {
     $Output = $Response.OutputStream
     $Output.Write($Buffer, 0, $Buffer.length)
     $Output.Close()
+}
+
+Function StringifyParameters {
+    Param (
+        [Parameter(Mandatory=$true)][Hashtable]$Parameters,
+        [Parameter()][switch]$DecodeBase64=$false
+    )
+
+    $StringifiedParameters = @()
+
+    foreach ($Key in $Parameters.Keys) {
+        if ($DecodeBase64) {
+            $StringifiedParameters += "$Key : $(ConvertIfFromBase64 -Text $Parameters[$Key])"
+        } else {
+            $StringifiedParameters += "$Key : $($Parameters[$Key])"
+        }
+    }
+
+    return $($StringifiedParameters -join " | ")
 }
 
 Function AutomationHookListener {
@@ -183,19 +189,16 @@ Function AutomationHookListener {
             if ($HostingTechnology -and $MethodName) {
                 $ParsedQueryString = $(ParseQueryString -QueryString $Request.QueryString)
 
-                WriteLog -Level "DEBUG" -Message "[$RequestGUID] > Request '$HostingTechnology/$MethodName' has these parameters: $(ConvertTo-Json $ParsedQueryString -Compress)"
+                $StringifiedPlatformParameters = $(StringifyParameters -Parameters $ParsedQueryString.PlatformParameters -DecodeBase64)
+                $StringifiedAdditionalParameters = $(StringifyParameters -Parameters $ParsedQueryString.AdditionalParameters)
 
-                if ($ParsedQueryString.Address) {
+                WriteLog -Level "DEBUG" -Message "[$RequestGUID] > Request '$HostingTechnology/$MethodName' has these Platform Parameters -> $StringifiedPlatformParameters and these Additional Parameters -> $StringifiedAdditionalParameters"
+
+                if ($ParsedQueryString.PlatformParameters.Address) {
                     try {
                         $(CreateAsyncJob    -RequestGUID $RequestGUID `
                                             -MethodName $MethodName `
-                                            -Address $ParsedQueryString.Address `
-                                            -ApplicationName $ParsedQueryString.ApplicationName `
-                                            -ApplicationKey $ParsedQueryString.ApplicationKey `
-                                            -OperationId $ParsedQueryString.OperationId `
-                                            -TargetPath $ParsedQueryString.TargetPath `
-                                            -ResultPath $ParsedQueryString.ResultPath `
-                                            -ConfigPath $ParsedQueryString.ConfigPath `
+                                            -PlatformParameters $ParsedQueryString.PlatformParameters `
                                             -AdditionalParameters $ParsedQueryString.AdditionalParameters `
                                             -ExecutionPath $ExecutionPath `
                                             -HostingTechnology $HostingTechnology)
